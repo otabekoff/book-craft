@@ -93,18 +93,87 @@
     } catch (e) {
       return;
     }
-    const css = getComputedStyle(document.documentElement);
-    window.mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      theme: currentTheme === "dark" ? "dark" : "neutral",
-      fontFamily: css.getPropertyValue("--bc-font-ui") || "Segoe UI",
-    });
+    window.mermaid.initialize(mermaidConfig(root));
     try {
       await window.mermaid.run({ nodes: nodes.filter((n) => !n.hasAttribute("data-processed")) });
     } catch (e) {
       /* a broken diagram shows its source */
     }
+  }
+
+  // Mermaid needs plain colours, so CSS colours (including color-mix) are resolved
+  // to rgb() by painting them on a 1×1 canvas.
+  const probe = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+  function resolveColor(cssValue, scope) {
+    const el = document.createElement("span");
+    el.style.color = cssValue;
+    el.style.display = "none";
+    (scope || document.body).appendChild(el);
+    const computed = getComputedStyle(el).color;
+    el.remove();
+    probe.clearRect(0, 0, 1, 1);
+    probe.fillStyle = "#000";
+    probe.fillStyle = computed;
+    probe.fillRect(0, 0, 1, 1);
+    const [r, g, b] = probe.getImageData(0, 0, 1, 1).data;
+    return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+  }
+
+  function mermaidConfig(root) {
+    const scope = root && root.nodeType === 1 ? root : document.body;
+    const c = (v) => resolveColor(`var(${v})`, scope);
+    const font = getComputedStyle(scope).getPropertyValue("--bc-font-ui").trim() || "Segoe UI, sans-serif";
+    const paper = c("--bc-paper");
+    const surface = c("--bc-surface-2");
+    const ink = c("--bc-ink");
+    const muted = c("--bc-muted");
+    const border = c("--bc-border-strong");
+    const accent = c("--bc-accent-ink");
+    const soft = c("--bc-soft");
+    return {
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "base",
+      look: "classic",
+      fontFamily: font,
+      flowchart: { curve: "basis", padding: 14, htmlLabels: true },
+      themeVariables: {
+        darkMode: currentTheme === "dark",
+        fontFamily: font,
+        fontSize: "15px",
+        background: paper,
+        mainBkg: surface,
+        primaryColor: surface,
+        primaryTextColor: ink,
+        primaryBorderColor: border,
+        secondaryColor: soft,
+        secondaryTextColor: ink,
+        secondaryBorderColor: accent,
+        tertiaryColor: paper,
+        tertiaryTextColor: ink,
+        tertiaryBorderColor: border,
+        lineColor: muted,
+        textColor: ink,
+        nodeBorder: border,
+        clusterBkg: paper,
+        clusterBorder: border,
+        edgeLabelBackground: paper,
+        titleColor: ink,
+        actorBkg: surface,
+        actorBorder: border,
+        actorTextColor: ink,
+        signalColor: muted,
+        signalTextColor: ink,
+        noteBkgColor: soft,
+        noteTextColor: ink,
+        noteBorderColor: accent,
+      },
+      themeCSS:
+        ".node rect, .node polygon, .actor, .note, rect.task { rx: 8px; ry: 8px; } " +
+        ".node rect, .node polygon, .node circle { filter: none !important; stroke-width: 1px; } " +
+        ".edgeLabel, .edgeLabel p { background: " + paper + "; color: " + muted + "; } " +
+        ".marker { fill: " + muted + "; stroke: " + muted + "; }",
+    };
   }
 
   /* ---------------------------------------------------------------- code */
@@ -130,10 +199,14 @@
           try {
             await navigator.clipboard.writeText(codeText(fig));
             copy.textContent = "Copied";
+            copy.classList.add("bc-done");
           } catch (e) {
             copy.textContent = "Select and press Ctrl+C";
           }
-          setTimeout(() => (copy.textContent = "Copy"), 1600);
+          setTimeout(() => {
+            copy.textContent = "Copy";
+            copy.classList.remove("bc-done");
+          }, 1600);
         });
         tools.appendChild(copy);
       }

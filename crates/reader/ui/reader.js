@@ -81,9 +81,29 @@
     document.querySelectorAll("[data-leading]").forEach((b) => b.setAttribute("aria-pressed", String((prefs.leading || "") === b.dataset.leading)));
     document.querySelectorAll("[data-width]").forEach((b) => b.setAttribute("aria-pressed", String((prefs.width || "") === b.dataset.width)));
     $("size-value").textContent = currentSize() + " px";
-    $("font-select").value = prefs.font || "";
+    renderFontList();
     renderSettings();
   }
+  // The book's own body font first, then the fonts the author lets readers pick.
+  function renderFontList() {
+    const list = $("font-list");
+    if (!list) return;
+    const choices = [{ key: "", name: "Book’s font", stack: "" }].concat(state.book.fontChoices || []);
+    list.innerHTML = "";
+    choices.forEach((f) => {
+      const selected = (prefs.font || "") === f.stack;
+      const b = el("button", { type: "button", role: "radio", "aria-checked": String(selected), class: "font-option" });
+      const name = el("span", { class: "font-name" }, f.name);
+      name.style.fontFamily = f.stack || "var(--bc-font-body)";
+      const sample = el("span", { class: "font-sample" }, "Aa");
+      sample.style.fontFamily = f.stack || "var(--bc-font-body)";
+      b.append(sample, name);
+      if (selected) b.insertAdjacentHTML("beforeend", (window.ReaderIcons || {}).check || "");
+      b.addEventListener("click", () => setPref("font", f.stack));
+      list.appendChild(b);
+    });
+  }
+
   function currentSize() {
     return prefs.size || parseInt(getComputedStyle(document.documentElement).getPropertyValue("--bc-size"), 10) || 19;
   }
@@ -607,7 +627,6 @@
     document.querySelectorAll("[data-width]").forEach((b) => b.addEventListener("click", () => setPref("width", b.dataset.width)));
     $("size-down").addEventListener("click", () => setPref("size", Math.max(14, currentSize() - 1)));
     $("size-up").addEventListener("click", () => setPref("size", Math.min(30, currentSize() + 1)));
-    $("font-select").addEventListener("change", (e) => setPref("font", e.target.value));
     $("search-input").addEventListener("input", (e) => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => runSearch(e.target.value), 180);

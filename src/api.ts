@@ -43,6 +43,8 @@ export interface Typography {
   paragraphStyle: string;
   headingNumbers: boolean;
   customCss: string;
+  uiFont: string;
+  codeFont: string;
 }
 
 export interface ReaderSettings {
@@ -64,6 +66,7 @@ export interface ReaderSettings {
   allowPrint: boolean;
   openLinksExternally: boolean;
   titleBar: string;
+  fontChoices: string[];
 }
 
 export interface Toggle {
@@ -166,13 +169,24 @@ export interface StudioSettings {
   theme: string;
 }
 
+export interface FontOption {
+  key: string;
+  name: string;
+  category: string;
+  source: "library" | "windows";
+  stack: string;
+  note: string;
+  kb: number;
+  cyrillic: boolean;
+}
+
 export interface AppInfo {
   version: string;
   readerTemplate: string | null;
   vendor: string | null;
   tools: ToolStatus[];
   codeThemes: string[];
-  fonts: [string, string][];
+  fonts: FontOption[];
   settings: StudioSettings;
 }
 

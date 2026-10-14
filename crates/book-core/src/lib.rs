@@ -3,6 +3,7 @@
 
 pub mod config;
 pub mod exe;
+pub mod fonts;
 pub mod icons;
 pub mod package;
 pub mod pak;

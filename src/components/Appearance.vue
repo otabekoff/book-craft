@@ -1,18 +1,29 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { BookOpenText, Type } from "@lucide/vue";
+import { computed, onMounted } from "vue";
+import { BookOpenText, CaseSensitive, Type } from "@lucide/vue";
+import { useFontPreviews } from "../fonts";
 import { store } from "../store";
-import { UiCard, UiField, UiInput, UiRange, UiSegmented, UiSelect, UiSwitch, type SelectOption } from "../ui";
+import { UiBadge, UiCard, UiCheckbox, UiField, UiInput, UiRange, UiSegmented, UiSelect, UiSwitch, type SelectOption } from "../ui";
 import AssetPicker from "./AssetPicker.vue";
+import FontPicker from "./FontPicker.vue";
 
 const t = computed(() => store.config!.typography);
 const r = computed(() => store.config!.reader);
 
-const fonts = computed<SelectOption<string>[]>(() => (store.info?.fonts ?? []).map(([value, label]) => ({ value, label })));
-const headingFonts = computed<SelectOption<string>[]>(() => [
-  { value: "same", label: "Same as body" },
-  ...fonts.value.filter((f) => f.value !== "custom"),
-]);
+const fontList = computed(() => store.info?.fonts ?? []);
+const stackOf = (key: string): string =>
+  key === "same" ? stackOf(t.value.bodyFont) : fontList.value.find((f) => f.key === key)?.stack ?? "inherit";
+const readerFontOptions = computed(() => fontList.value.filter((f) => !["mono", "handwriting"].includes(f.category) && f.key !== "custom"));
+const bundledKb = computed(() => {
+  const keys = new Set([t.value.bodyFont, t.value.headingFont, t.value.uiFont, t.value.codeFont, ...r.value.fontChoices]);
+  return fontList.value.filter((f) => f.source === "library" && keys.has(f.key)).reduce((n, f) => n + f.kb, 0);
+});
+function toggleChoice(key: string, on: boolean) {
+  const list = r.value.fontChoices.filter((k) => k !== key);
+  if (on) list.push(key);
+  r.value.fontChoices = list;
+}
+onMounted(useFontPreviews);
 const paragraphOptions: SelectOption<string>[] = [
   { value: "spaced", label: "Space between paragraphs", description: "Easy to scan; common on screens" },
   { value: "indent", label: "Indented", description: "First-line indent, like a printed novel" },
@@ -55,13 +66,39 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
         </div>
       </div>
 
-      <UiCard title="Typography" :icon="Type">
-        <div class="grid">
-          <UiField label="Body typeface" for="a-body"><UiSelect id="a-body" v-model="t.bodyFont" :options="fonts" /></UiField>
-          <UiField label="Heading typeface" for="a-head"><UiSelect id="a-head" v-model="t.headingFont" :options="headingFonts" /></UiField>
-          <UiField v-if="t.bodyFont === 'custom'" label="Font file">
+      <UiCard title="Fonts" :icon="CaseSensitive" description="Bundled fonts look the same on every PC and are packed into the book only when used. Windows fonts add nothing to the size.">
+        <template #actions>
+          <UiBadge :tone="bundledKb ? 'accent' : 'neutral'">{{ bundledKb ? `+${bundledKb} KB of fonts` : "No bundled fonts" }}</UiBadge>
+        </template>
+        <div class="grid two">
+          <UiField label="Body text" for="f-body">
+            <FontPicker id="f-body" v-model="t.bodyFont" :categories="['serif', 'sans', 'display']" />
+          </UiField>
+          <UiField label="Headings" for="f-head">
+            <FontPicker id="f-head" v-model="t.headingFont" :categories="['serif', 'sans', 'display', 'handwriting']" :extra="{ value: 'same', label: 'Same as body text' }" />
+          </UiField>
+          <UiField label="Labels, captions and controls" for="f-ui" hint="Callout titles, tables, captions and the reader’s own buttons.">
+            <FontPicker id="f-ui" v-model="t.uiFont" :categories="['sans']" />
+          </UiField>
+          <UiField label="Code" for="f-code">
+            <FontPicker id="f-code" v-model="t.codeFont" :categories="['mono']" />
+          </UiField>
+          <UiField v-if="t.bodyFont === 'custom'" label="Custom font file">
             <AssetPicker v-model="t.customFont" :extensions="['woff2', 'woff', 'ttf', 'otf']" subdir="fonts" placeholder="Choose a font file" />
           </UiField>
+        </div>
+        <div class="specimen" aria-hidden="true">
+          <div class="sp-head" :style="{ fontFamily: stackOf(t.headingFont) }">The Harbour at Dawn</div>
+          <p class="sp-body" :style="{ fontFamily: stackOf(t.bodyFont) }">The fishing boats came in before the light did — Мара услышала их с чердака. <em>Italic</em>, <b>bold</b> and 0123456789.</p>
+          <div class="sp-row">
+            <span class="sp-label" :style="{ fontFamily: stackOf(t.uiFont) }">Tip · Figure 1 · Chapter 2 of 12</span>
+            <code class="sp-code" :style="{ fontFamily: stackOf(t.codeFont) }">let fish = boats.len();</code>
+          </div>
+        </div>
+      </UiCard>
+
+      <UiCard title="Typography" :icon="Type">
+        <div class="grid">
           <UiField label="Paragraphs" for="a-par"><UiSelect id="a-par" v-model="t.paragraphStyle" :options="paragraphOptions" /></UiField>
         </div>
         <div class="grid">
@@ -119,6 +156,18 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
         <div class="grid">
           <UiSwitch v-for="item in toggles" :key="item.key" v-model="(r as any)[item.key]" :label="item.label" :description="item.hint" />
         </div>
+        <UiField v-if="r.allowFontChange" label="Fonts readers can switch to" hint="The book’s own body font is always offered first. Bundled fonts here are packed into the book.">
+          <div class="choices">
+            <UiCheckbox
+              v-for="f in readerFontOptions"
+              :key="f.key"
+              :model-value="r.fontChoices.includes(f.key)"
+              @update:model-value="toggleChoice(f.key, $event)"
+            >
+              <span class="choice"><span :style="{ fontFamily: f.stack }">{{ f.name }}</span><small>{{ f.kb ? `+${f.kb} KB` : "Windows" }}</small></span>
+            </UiCheckbox>
+          </div>
+        </UiField>
       </UiCard>
     </div>
   </div>
@@ -126,5 +175,14 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
 
 <style scoped>
 .pair { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.specimen { border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; background: var(--panel-2); display: flex; flex-direction: column; gap: 8px; }
+.sp-head { font-size: 24px; font-weight: 650; line-height: 1.2; }
+.sp-body { margin: 0; font-size: 17px; line-height: 1.6; }
+.sp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.sp-label { font-size: 13px; font-weight: 600; color: var(--accent); }
+.sp-code { font-size: 13px; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; }
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 2px 16px; }
+.choice { display: flex; align-items: baseline; gap: 8px; }
+.choice small { color: var(--muted); font-size: 11px; }
 code { font-family: var(--mono); font-size: 11.5px; }
 </style>

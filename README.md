@@ -73,7 +73,15 @@ cargo run -p bookcraft -- cert new "CN=My Press" D:\certs --password secret
 
 ### Studio UI
 
-The studio uses its own component kit in `src/ui` (`UiButton`, `UiSelect`, `UiRange`, `UiSwitch`, `UiCheckbox`, `UiSegmented`, `UiInput`, `UiField`, `UiCard`, `UiDialog`, `UiMenu`, `UiColor`, `UiBadge`) and [Lucide](https://lucide.dev) icons from `@lucide/vue`. The reader has no build step, so its icons are generated from the same package: run `bun run reader-icons` after changing the list in `scripts/reader-icons.mjs`.
+The studio uses its own component kit in `src/ui` (`UiButton`, `UiSelect`, `UiRange`, `UiSwitch`, `UiCheckbox`, `UiSegmented`, `UiInput`, `UiField`, `UiCard`, `UiDialog`, `UiMenu`, `UiColor`, `UiBadge`) and [Lucide](https://lucide.dev) icons from `@lucide/vue`. The reader and the book blocks have no build step, so their icons are generated from the same package: run `bun run lucide-icons` after changing the lists in `scripts/lucide-icons.mjs` (it writes `crates/reader/ui/icons.js` and `crates/book-core/runtime/icons.css`).
+
+## Fonts
+
+**Appearance → Fonts** picks four roles: body text, headings, labels/captions/controls, and code. Choose Windows fonts (no size cost) or the bundled library of 19 open-licence (SIL OFL) families: Literata, Source Serif 4, Merriweather, Lora, EB Garamond, PT Serif, Noto Serif, Playfair Display, Inter, Source Sans 3, IBM Plex Sans, Nunito, Noto Sans, Atkinson Hyperlegible, OpenDyslexic, Caveat, JetBrains Mono, Fira Code and Source Code Pro. Most include Cyrillic. A book carries only the fonts it uses (typically 100–500 KB each), with their licence files.
+
+Under **Reader → Fonts readers can switch to** you choose what the reader's typeface menu offers besides the book's own font.
+
+The library is built from the `@fontsource` packages by `scripts/fonts.mjs` (run as part of `bun run prepare:resources`) into `src-tauri/resources/runtime/fonts`.
 
 ## Book settings file
 

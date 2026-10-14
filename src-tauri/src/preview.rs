@@ -12,6 +12,7 @@ use tauri::{AppHandle, Manager};
 use crate::state::AppState;
 
 pub const PROJECT_BASE: &str = "http://bookasset.localhost/project/";
+pub const FONT_BASE: &str = "http://bookasset.localhost/_runtime/fonts/";
 
 fn mime(path: &str) -> &'static str {
     let ext = path.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
@@ -81,10 +82,36 @@ pub fn serve(app: &AppHandle, req: Request<Vec<u8>>) -> Response<Cow<'static, [u
         "_runtime/book.css" => {
             let guard = state.project.lock().unwrap();
             let css = match guard.as_ref() {
-                Some(p) => theme::book_css(&p.config, &p.root, PROJECT_BASE),
+                Some(p) => theme::book_css(
+                    &p.config,
+                    &p.root,
+                    PROJECT_BASE,
+                    theme::FontSource { library: state.resources.fonts.as_ref(), base: FONT_BASE },
+                ),
                 None => theme::BLOCKS_CSS.to_string(),
             };
             reply(StatusCode::OK, "text/css; charset=utf-8", css.into_bytes())
+        }
+        // Every bundled font, so the studio's font pickers can show each in its own face.
+        "_runtime/fonts/all.css" => {
+            let css = state
+                .resources
+                .fonts
+                .as_ref()
+                .map(|lib| lib.fonts.iter().map(|f| lib.face_css(&f.id, FONT_BASE)).collect::<String>())
+                .unwrap_or_default();
+            reply(StatusCode::OK, "text/css; charset=utf-8", css.into_bytes())
+        }
+        p if p.starts_with("_runtime/fonts/") => {
+            let Some(dir) = state.resources.fonts_dir.as_ref() else { return not_found() };
+            let rel = &p["_runtime/fonts/".len()..];
+            if !(rel.ends_with(".woff2") || rel.ends_with("/LICENSE")) {
+                return not_found();
+            }
+            match resolve_inside(dir, rel).ok().and_then(|f| std::fs::read(f).ok()) {
+                Some(data) => reply(StatusCode::OK, mime(p), data),
+                None => not_found(),
+            }
         }
         "_runtime/blocks.js" => reply(StatusCode::OK, "text/javascript; charset=utf-8", theme::BLOCKS_JS.as_bytes().to_vec()),
         p if p.starts_with("_runtime/vendor/") => {

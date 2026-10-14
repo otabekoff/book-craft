@@ -121,6 +121,10 @@ pub struct Typography {
     pub heading_numbers: bool,
     /// Extra stylesheet inside the project, appended after the built-in styles.
     pub custom_css: String,
+    /// Font for labels, captions, tables and the reader's own controls.
+    pub ui_font: String,
+    /// Font for code blocks and inline code.
+    pub code_font: String,
 }
 
 impl Default for Typography {
@@ -140,6 +144,8 @@ impl Default for Typography {
             paragraph_style: "spaced".into(),
             heading_numbers: false,
             custom_css: String::new(),
+            ui_font: "segoe".into(),
+            code_font: "cascadia".into(),
         }
     }
 }
@@ -167,6 +173,8 @@ pub struct ReaderSettings {
     pub open_links_externally: bool,
     /// `custom` (the book's own title bar, matching its theme) or `native`.
     pub title_bar: String,
+    /// Fonts readers may switch to (besides the book's own). Bundled ones are packed.
+    pub font_choices: Vec<String>,
 }
 
 impl Default for ReaderSettings {
@@ -190,6 +198,7 @@ impl Default for ReaderSettings {
             allow_print: true,
             open_links_externally: true,
             title_bar: "custom".into(),
+            font_choices: vec!["georgia".into(), "segoe".into(), "verdana".into()],
         }
     }
 }

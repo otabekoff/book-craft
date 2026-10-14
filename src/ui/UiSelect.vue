@@ -11,6 +11,10 @@ export interface SelectOption<V> {
   icon?: Component;
   disabled?: boolean;
   group?: string;
+  /** Shows the label in this CSS font-family (font pickers). */
+  fontFamily?: string;
+  /** Small text on the right, e.g. a size. */
+  meta?: string;
 }
 
 const props = withDefaults(
@@ -195,7 +199,7 @@ onBeforeUnmount(() => (open.value = false));
     @keydown="onTriggerKey"
   >
     <component :is="selected.icon" v-if="selected?.icon" class="opt-icon" aria-hidden="true" />
-    <span class="value" :class="{ placeholder: !selected }">{{ selected?.label ?? placeholder }}</span>
+    <span class="value" :class="{ placeholder: !selected }" :style="selected?.fontFamily ? { fontFamily: selected.fontFamily } : undefined">{{ selected?.label ?? placeholder }}</span>
     <ChevronDown class="chev" aria-hidden="true" />
   </button>
   <Teleport to="body">
@@ -231,9 +235,10 @@ onBeforeUnmount(() => (open.value = false));
           >
             <component :is="o.icon" v-if="o.icon" class="opt-icon" aria-hidden="true" />
             <span class="text">
-              <span :class="{ mono }">{{ o.label }}</span>
+              <span :class="{ mono }" :style="o.fontFamily ? { fontFamily: o.fontFamily, fontSize: '15px' } : undefined">{{ o.label }}</span>
               <small v-if="o.description">{{ o.description }}</small>
             </span>
+            <small v-if="o.meta" class="meta">{{ o.meta }}</small>
             <Check v-if="o.value === model" class="tick" aria-hidden="true" />
           </li>
         </template>
@@ -297,6 +302,7 @@ onBeforeUnmount(() => (open.value = false));
 .ui-select-pop .text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ui-select-pop .text small { color: var(--muted); font-size: 12px; font-weight: 400; }
 .ui-select-pop .tick { width: 16px; height: 16px; flex: none; }
+.ui-select-pop .meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .ui-select-pop .group { padding: 8px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
 .ui-select-pop .empty { padding: 12px; color: var(--muted); text-align: center; }
 .ui-select-pop .mono { font-family: var(--mono); font-size: 13px; }

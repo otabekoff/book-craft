@@ -1,5 +1,6 @@
 // Builds the reader template and copies it plus the math/diagram libraries
-// into src-tauri/resources, where the studio (and its installer) find them.
+// into src-tauri/resources, where the studio (and its installer) find them,
+// and builds the bundled font library (scripts/fonts.mjs).
 //
 //   node scripts/prepare.mjs            build the reader (release) and copy everything
 //   node scripts/prepare.mjs --debug    use a debug reader build (faster to compile)
@@ -9,6 +10,7 @@ import { execSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildFonts } from "./fonts.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = new Set(process.argv.slice(2));
@@ -56,4 +58,5 @@ if (existsSync(mermaid)) {
 } else {
   console.warn("Mermaid is not installed (bun install) — diagrams will show as text.");
 }
+buildFonts();
 console.log("Resources ready in src-tauri/resources");

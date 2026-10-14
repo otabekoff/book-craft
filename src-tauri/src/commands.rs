@@ -35,7 +35,7 @@ pub struct AppInfo {
     vendor: Option<String>,
     tools: Vec<book_core::tools::ToolStatus>,
     code_themes: Vec<String>,
-    fonts: Vec<(String, String)>,
+    fonts: Vec<book_core::fonts::FontOption>,
     settings: StudioSettings,
 }
 
@@ -47,7 +47,7 @@ pub fn app_info(state: State<AppState>) -> AppInfo {
         vendor: state.resources.vendor.as_ref().map(|p| p.display().to_string()),
         tools: state.tools().status(),
         code_themes: book_core::render::highlight::theme_names(),
-        fonts: theme::FONTS.iter().map(|(k, l, _)| (k.to_string(), l.to_string())).collect(),
+        fonts: book_core::fonts::options(state.resources.fonts.as_ref()),
         settings: state.settings.lock().unwrap().clone(),
     }
 }
@@ -220,6 +220,7 @@ pub async fn build_book(app: AppHandle, state: State<'_, AppState>, args: BuildA
         targets: args.targets,
         reader_template: reader,
         vendor_dir: state.resources.vendor.clone(),
+        fonts_dir: state.resources.fonts_dir.clone(),
         tools: state.tools(),
         certificate_password: args.password,
         keep_work_files: false,
@@ -244,13 +245,14 @@ pub async fn test_read(state: State<'_, AppState>) -> R<()> {
     })?;
     let reader = state.resources.reader.clone().ok_or("The reader template is missing. Run `bun run prepare`.")?;
     let vendor = state.resources.vendor.clone();
+    let fonts = state.resources.fonts.clone();
     tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<()> {
         let project = Project::open(&root)?;
         let icon = icons::IconSet::load(&project)?;
         let dir = std::env::temp_dir().join("bookcraft").join("test-read");
         std::fs::create_dir_all(&dir)?;
         let pak_path = dir.join(format!("{}.pak", project.config.meta.package_id));
-        pak::build(&project, vendor.as_deref(), &icon.png(256)?, &pak_path, &mut |_| {})?;
+        pak::build(&project, vendor.as_deref(), fonts.as_ref(), &icon.png(256)?, &pak_path, &mut |_| {})?;
         std::process::Command::new(reader).arg("--book").arg(&pak_path).spawn()?;
         Ok(())
     })

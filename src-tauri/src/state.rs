@@ -26,6 +26,8 @@ pub struct AppState {
 pub struct Resources {
     pub reader: Option<PathBuf>,
     pub vendor: Option<PathBuf>,
+    pub fonts_dir: Option<PathBuf>,
+    pub fonts: Option<book_core::fonts::FontLibrary>,
     pub extra_tool_dirs: Vec<PathBuf>,
 }
 
@@ -87,6 +89,8 @@ impl Resources {
         Self {
             reader: pick("reader/book-reader.exe"),
             vendor: pick("runtime/vendor"),
+            fonts_dir: pick("runtime/fonts"),
+            fonts: pick("runtime/fonts").and_then(|d| book_core::fonts::FontLibrary::load(&d)),
             extra_tool_dirs: roots.iter().map(|r| r.join("tools")).filter(|p| p.exists()).collect(),
         }
     }

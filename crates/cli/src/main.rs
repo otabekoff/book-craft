@@ -104,6 +104,7 @@ fn cmd_build(args: &[String]) -> anyhow::Result<()> {
         targets,
         reader_template: reader,
         vendor_dir: Some(vendor),
+        fonts_dir: Some(root.join("src-tauri/resources/runtime/fonts")),
         tools: ToolPaths::default(),
         certificate_password: flag(args, "--password").or_else(|| std::env::var("BOOKCRAFT_CERT_PASSWORD").ok()),
         keep_work_files: args.iter().any(|a| a == "--keep"),

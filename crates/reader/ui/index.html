@@ -108,16 +108,9 @@
             <button type="button" id="size-up" aria-label="Larger text" class="size-btn large">A</button>
           </div>
         </div>
-        <div class="pop-row" id="row-font">
-          <label class="pop-label" for="font-select">Typeface</label>
-          <select id="font-select">
-            <option value="">Book default</option>
-            <option value='"Sitka Text", Georgia, serif'>Sitka</option>
-            <option value='Georgia, serif'>Georgia</option>
-            <option value='"Palatino Linotype", "Book Antiqua", serif'>Palatino</option>
-            <option value='"Segoe UI Variable Text", "Segoe UI", sans-serif'>Segoe UI</option>
-            <option value='Verdana, sans-serif'>Verdana</option>
-          </select>
+        <div class="pop-block" id="row-font">
+          <span class="pop-label" id="font-label">Typeface</span>
+          <div class="font-list" id="font-list" role="radiogroup" aria-labelledby="font-label"></div>
         </div>
         <div class="pop-row">
           <span class="pop-label">Line spacing</span>

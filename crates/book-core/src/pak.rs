@@ -21,6 +21,7 @@ use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
 use crate::config::{BookConfig, ReaderSettings};
+use crate::fonts::FontLibrary;
 use crate::project::{Project, chapter_title};
 use crate::render::{Heading, RenderOptions, render_markdown};
 use crate::theme;
@@ -39,6 +40,16 @@ pub struct Manifest {
     pub chapters: Vec<ManifestChapter>,
     pub features: BTreeSet<String>,
     pub words: usize,
+    /// Fonts readers may switch to (the book's own body font is always offered first).
+    pub font_choices: Vec<FontChoice>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FontChoice {
+    pub key: String,
+    pub name: String,
+    pub stack: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -122,10 +133,12 @@ pub fn public_meta(c: &BookConfig) -> PublicMeta {
 }
 
 /// Renders every visible chapter and packs the book.
-/// `vendor_dir` holds `katex/` and `mermaid.min.js`; `icon_png` is the window icon.
+/// `vendor_dir` holds `katex/` and `mermaid.min.js`; `fonts` is the bundled font library;
+/// `icon_png` is the window icon.
 pub fn build(
     project: &Project,
     vendor_dir: Option<&Path>,
+    fonts: Option<&FontLibrary>,
     icon_png: &[u8],
     out: &Path,
     log: &mut dyn FnMut(&str),
@@ -185,7 +198,31 @@ pub fn build(
     log(&format!("Packed {asset_count} asset file(s)"));
 
     w.add("_app/icon.png", icon_png)?;
-    w.add("_runtime/book.css", theme::book_css(config, &project.root, "/").as_bytes())?;
+    let font_src = theme::FontSource { library: fonts, base: "/_runtime/fonts/" };
+    w.add("_runtime/book.css", theme::book_css(config, &project.root, "/", font_src).as_bytes())?;
+    let used_fonts = crate::fonts::used_library_ids(config);
+    match fonts {
+        Some(lib) => {
+            for id in &used_fonts {
+                let files = lib.files(id);
+                if files.is_empty() {
+                    warnings.push(format!("The font “{id}” is not in the font library; a fallback font is used."));
+                }
+                for f in files {
+                    let name = f.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    w.add(&format!("_runtime/fonts/{id}/{name}"), &std::fs::read(&f)?)?;
+                }
+            }
+            if !used_fonts.is_empty() {
+                let kb: u64 = used_fonts.iter().filter_map(|id| lib.get(id)).map(|f| f.kb).sum();
+                log(&format!("Included {} font(s), {kb} KB", used_fonts.len()));
+            }
+        }
+        None if !used_fonts.is_empty() => {
+            warnings.push("The font library was not found; bundled fonts fall back to Windows fonts.".into());
+        }
+        None => {}
+    }
     w.add("_runtime/blocks.js", theme::BLOCKS_JS.as_bytes())?;
 
     let needs_math = features.contains("math");
@@ -235,6 +272,16 @@ pub fn build(
         chapters,
         features,
         words: total_words,
+        font_choices: config
+            .reader
+            .font_choices
+            .iter()
+            .map(|k| FontChoice {
+                key: k.clone(),
+                name: crate::fonts::display_name(k, fonts),
+                stack: crate::fonts::stack(k, fonts),
+            })
+            .collect(),
     };
     w.add("book.json", serde_json::to_string_pretty(&manifest)?.as_bytes())?;
     w.zip.finish()?.flush()?;

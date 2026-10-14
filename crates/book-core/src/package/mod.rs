@@ -43,6 +43,8 @@ pub struct BuildRequest {
     pub reader_template: PathBuf,
     /// Folder with `katex/` and `mermaid.min.js`.
     pub vendor_dir: Option<PathBuf>,
+    /// The bundled font library (`fonts.json` and one folder per font).
+    pub fonts_dir: Option<PathBuf>,
     pub tools: ToolPaths,
     pub certificate_password: Option<String>,
     pub keep_work_files: bool,
@@ -181,7 +183,8 @@ pub fn build(project: &Project, req: &BuildRequest, log: &mut Log) -> Result<Bui
     // 2. The book itself.
     let pak_path = work.join("stage").join(pak_format::PAK_FILE);
     let mut pak_log = |m: &str| info(log, m.to_string());
-    let pak = pak::build(project, req.vendor_dir.as_deref(), &icons.png(256)?, &pak_path, &mut pak_log)?;
+    let library = req.fonts_dir.as_deref().and_then(crate::fonts::FontLibrary::load);
+    let pak = pak::build(project, req.vendor_dir.as_deref(), library.as_ref(), &icons.png(256)?, &pak_path, &mut pak_log)?;
     for w in &pak.warnings {
         warn(log, w.clone());
     }
