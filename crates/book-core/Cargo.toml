@@ -1,0 +1,23 @@
+[package]
+name = "book-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1.0.104"
+comrak = { version = "0.56.0", default-features = false, features = ["attributes"] }
+editpe = { version = "0.2.4", default-features = false, features = ["std", "images"] }
+ico = "0.6.0"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+pak-format = { path = "../pak-format" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
+two-face = { version = "0.5.2", default-features = false, features = ["syntect-fancy"] }
+uuid = { version = "1.28.0", features = ["v5"] }
+walkdir = "2.5.0"
+zip = { version = "9.0.3", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

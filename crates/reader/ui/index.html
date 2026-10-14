@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book</title>
+<link rel="stylesheet" href="/_runtime/book.css">
+<link rel="stylesheet" href="/_reader/reader.css">
+<script src="/_runtime/blocks.js"></script>
+<script src="/_reader/reader.js" defer></script>
+</head>
+<body>
+<div id="app" class="app" aria-busy="true">
+
+  <!-- Home -->
+  <section id="home" class="view home" hidden>
+    <main class="home-main">
+      <div class="cover" id="cover" role="img"></div>
+      <div class="home-info">
+        <div class="eyebrow" id="home-eyebrow"></div>
+        <h1 class="home-title" id="home-title"></h1>
+        <div class="home-subtitle" id="home-subtitle"></div>
+        <div class="home-author" id="home-author"></div>
+        <p class="home-description" id="home-description"></p>
+        <div class="home-actions">
+          <a class="btn btn-primary" id="home-continue" href="#read/0">
+            <span class="btn-label">Start reading</span>
+            <span class="btn-sub" id="home-continue-sub"></span>
+          </a>
+          <a class="btn btn-secondary" id="home-start" href="#read/0" hidden>Start from the beginning</a>
+        </div>
+        <div class="home-progress" id="home-progress-wrap" hidden>
+          <div class="bar"><div id="home-progress"></div></div>
+          <div class="home-progress-text" id="home-progress-text"></div>
+        </div>
+      </div>
+    </main>
+    <nav class="home-contents" aria-label="Contents">
+      <h2>Contents</h2>
+      <ol id="home-toc"></ol>
+    </nav>
+    <footer class="home-footer">
+      <span id="home-copyright"></span>
+      <a href="#about">About this book</a>
+    </footer>
+  </section>
+
+  <!-- Reader -->
+  <section id="reader" class="view reader" hidden>
+    <nav id="toc" class="toc" aria-label="Contents">
+      <div class="toc-head">
+        <a href="#home" class="toc-book" id="toc-book"></a>
+      </div>
+      <ol id="toc-list"></ol>
+    </nav>
+    <div class="reader-main">
+      <header class="toolbar" role="toolbar" aria-label="Reading tools">
+        <button class="icon-btn" id="btn-toc" type="button" aria-label="Show or hide contents" title="Contents (Ctrl+B)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        </button>
+        <a class="icon-btn" href="#home" aria-label="Book home" title="Book home" id="btn-home">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V6a2 2 0 0 1 2-2h12v13H6a2 2 0 0 0-2 2zm0 0a2 2 0 0 0 2 2h12"/></svg>
+        </a>
+        <div class="toolbar-title" id="toolbar-title"></div>
+        <button class="icon-btn" id="btn-search" type="button" aria-label="Search" title="Search (Ctrl+F)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-bookmark" type="button" aria-label="Bookmark this place" title="Bookmarks (Ctrl+D)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-4-5 4z"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-display" type="button" aria-label="Text and theme" title="Text and theme" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 9 6l5 12M5.8 14h6.4M15 18l3-7 3 7M15.9 16h4.2"/></svg>
+        </button>
+        <a class="icon-btn" href="#about" aria-label="About this book and settings" title="About and settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+        </a>
+      </header>
+
+      <div id="display-panel" class="popover" hidden>
+        <div class="pop-row" id="row-theme">
+          <span class="pop-label">Theme</span>
+          <div class="seg" role="group" aria-label="Theme" id="theme-buttons">
+            <button type="button" data-theme-choice="light" class="swatch swatch-light" aria-label="Light"></button>
+            <button type="button" data-theme-choice="sepia" class="swatch swatch-sepia" aria-label="Sepia"></button>
+            <button type="button" data-theme-choice="dark" class="swatch swatch-dark" aria-label="Dark"></button>
+            <button type="button" data-theme-choice="system" class="swatch swatch-system" aria-label="Match Windows"></button>
+          </div>
+        </div>
+        <div class="pop-row" id="row-size">
+          <span class="pop-label">Text size</span>
+          <div class="seg">
+            <button type="button" id="size-down" aria-label="Smaller text" class="size-btn small">A</button>
+            <span id="size-value" class="size-value"></span>
+            <button type="button" id="size-up" aria-label="Larger text" class="size-btn large">A</button>
+          </div>
+        </div>
+        <div class="pop-row" id="row-font">
+          <label class="pop-label" for="font-select">Typeface</label>
+          <select id="font-select">
+            <option value="">Book default</option>
+            <option value='"Sitka Text", Georgia, serif'>Sitka</option>
+            <option value='Georgia, serif'>Georgia</option>
+            <option value='"Palatino Linotype", "Book Antiqua", serif'>Palatino</option>
+            <option value='"Segoe UI Variable Text", "Segoe UI", sans-serif'>Segoe UI</option>
+            <option value='Verdana, sans-serif'>Verdana</option>
+          </select>
+        </div>
+        <div class="pop-row">
+          <span class="pop-label">Line spacing</span>
+          <div class="seg seg-text" role="group" aria-label="Line spacing" id="leading-buttons">
+            <button type="button" data-leading="compact">Compact</button>
+            <button type="button" data-leading="">Normal</button>
+            <button type="button" data-leading="relaxed">Relaxed</button>
+          </div>
+        </div>
+        <div class="pop-row">
+          <span class="pop-label">Width</span>
+          <div class="seg seg-text" role="group" aria-label="Page width" id="width-buttons">
+            <button type="button" data-width="narrow">Narrow</button>
+            <button type="button" data-width="">Normal</button>
+            <button type="button" data-width="wide">Wide</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="search-panel" class="side-panel" hidden>
+        <div class="side-head">
+          <input id="search-input" type="search" placeholder="Search the book" aria-label="Search the book" autocomplete="off">
+          <button class="icon-btn" type="button" data-close="search-panel" aria-label="Close search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <div id="search-status" class="side-status" aria-live="polite"></div>
+        <ol id="search-results" class="side-list"></ol>
+      </div>
+
+      <div id="bookmark-panel" class="side-panel" hidden>
+        <div class="side-head">
+          <h2>Bookmarks</h2>
+          <button class="icon-btn" type="button" data-close="bookmark-panel" aria-label="Close bookmarks">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <button type="button" class="btn btn-secondary btn-block" id="add-bookmark">Bookmark this page</button>
+        <ol id="bookmark-list" class="side-list"></ol>
+      </div>
+
+      <div class="scroller" id="scroller">
+        <article id="chapter" class="bc-chapter" tabindex="-1"></article>
+        <nav class="chapter-nav" aria-label="Chapter navigation">
+          <button type="button" class="btn btn-secondary" id="prev">← Previous</button>
+          <button type="button" class="btn btn-primary" id="next">Next chapter →</button>
+        </nav>
+      </div>
+
+      <footer class="progress" id="progress-bar">
+        <span id="progress-chapter"></span>
+        <div class="bar" aria-hidden="true"><div id="progress-fill"></div></div>
+        <span id="progress-pct"></span>
+      </footer>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section id="about" class="view about" hidden>
+    <main class="about-main">
+      <a href="#back" class="back-link" id="about-back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Back
+      </a>
+      <h1>About this book</h1>
+      <div class="about-grid">
+        <section class="card" aria-labelledby="details-h">
+          <h2 id="details-h">Book details</h2>
+          <dl id="about-details" class="details"></dl>
+        </section>
+        <section class="card" aria-labelledby="reading-h" id="about-settings">
+          <h2 id="reading-h">Reading</h2>
+          <div id="about-settings-body"></div>
+        </section>
+      </div>
+      <section class="rights" aria-labelledby="rights-h">
+        <h2 id="rights-h">Rights</h2>
+        <p id="about-copyright"></p>
+        <p id="about-rights"></p>
+        <p class="made-with">Made with Book Craft</p>
+      </section>
+    </main>
+  </section>
+
+  <div id="viewer" class="viewer" hidden>
+    <div class="viewer-bar">
+      <span id="viewer-title"></span>
+      <button class="icon-btn" type="button" id="viewer-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <iframe id="viewer-frame" title="File viewer"></iframe>
+  </div>
+</div>
+</body>
+</html>

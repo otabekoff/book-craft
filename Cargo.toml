@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = ["src-tauri", "crates/book-core", "crates/reader", "crates/cli", "crates/pak-format"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
+
+# The reader is copied into every generated book, so keep it small.
+[profile.release.package.book-reader]
+opt-level = "s"

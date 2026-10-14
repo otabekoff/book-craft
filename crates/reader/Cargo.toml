@@ -1,0 +1,16 @@
+[package]
+name = "book-reader"
+description = "The reader runtime that every generated book app is made from"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pak-format = { path = "../pak-format" }
+serde_json = "1.0.154"
+tauri = { version = "2", features = ["image-png"] }
+tauri-plugin-opener = "2"
+zip = { version = "9.0.3", default-features = false, features = ["deflate"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

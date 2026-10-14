@@ -1,0 +1,10 @@
+[package]
+name = "bookcraft"
+description = "Command-line book builder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1.0.104"
+book-core = { path = "../book-core" }
