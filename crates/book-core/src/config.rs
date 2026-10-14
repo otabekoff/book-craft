@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const CONFIG_FILE: &str = "book.json";
+pub const TOML_CONFIG_FILE: &str = "book.toml";
 pub const CONFIG_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,6 +165,8 @@ pub struct ReaderSettings {
     pub allow_copy: bool,
     pub allow_print: bool,
     pub open_links_externally: bool,
+    /// `custom` (the book's own title bar, matching its theme) or `native`.
+    pub title_bar: String,
 }
 
 impl Default for ReaderSettings {
@@ -186,6 +189,7 @@ impl Default for ReaderSettings {
             allow_copy: true,
             allow_print: true,
             open_links_externally: true,
+            title_bar: "custom".into(),
         }
     }
 }

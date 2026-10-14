@@ -63,6 +63,7 @@ export interface ReaderSettings {
   allowCopy: boolean;
   allowPrint: boolean;
   openLinksExternally: boolean;
+  titleBar: string;
 }
 
 export interface Toggle {
@@ -135,6 +136,7 @@ export interface ProjectData {
   chapters: ChapterInfo[];
   chapterClass: string;
   problems: string[];
+  format: "json" | "toml";
 }
 
 export interface AssetInfo {
@@ -213,6 +215,23 @@ export interface LogLine {
   message: string;
 }
 
+export interface CertificateInfo {
+  subject: string;
+  issuer: string;
+  thumbprint: string;
+  notAfter: string;
+  expired: boolean;
+  selfSigned: boolean;
+  codeSigning: boolean;
+  hasPrivateKey: boolean;
+}
+
+export interface TestCertificate {
+  pfx: string;
+  cer: string;
+  info: CertificateInfo;
+}
+
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   saveSettings: (settings: StudioSettings) => invoke<AppInfo>("save_settings", { settings }),
@@ -221,6 +240,7 @@ export const api = {
   close: () => invoke<void>("project_close"),
   saveConfig: (config: BookConfig) => invoke<ProjectData>("project_save_config", { config }),
   validate: () => invoke<string[]>("project_validate"),
+  setFormat: (format: "json" | "toml") => invoke<ProjectData>("project_set_format", { format }),
   readChapter: (file: string) => invoke<string>("chapter_read", { file }),
   writeChapter: (file: string, content: string) => invoke<ChapterInfo[]>("chapter_write", { file, content }),
   addChapter: (title: string, after: string | null) => invoke<[string, ProjectData]>("chapter_add", { title, after }),
@@ -233,6 +253,9 @@ export const api = {
   testRead: () => invoke<void>("test_read"),
   reveal: (path: string) => invoke<void>("reveal", { path }),
   launch: (path: string) => invoke<void>("launch", { path }),
+  certificateInspect: (path: string, password: string | null) => invoke<CertificateInfo>("certificate_inspect", { path, password }),
+  certificateCreate: (subject: string, password: string) => invoke<TestCertificate>("certificate_create", { subject, password }),
+  certificateTrust: (cer: string) => invoke<void>("certificate_trust", { cer }),
 };
 
 export const ASSET_BASE = "http://bookasset.localhost";

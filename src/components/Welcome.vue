@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { BookOpen, FolderOpen, Library, TriangleAlert } from "@lucide/vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { api, errorText } from "../api";
 import { applyProject, loadAssets, notify, openProject, store } from "../store";
-import Icon from "./Icon.vue";
+import { UiButton, UiCard, UiField, UiInput } from "../ui";
 
 const title = ref("");
 const author = ref("");
@@ -37,7 +38,7 @@ async function create() {
 }
 
 async function openExisting(dir?: string) {
-  const picked = dir ?? (await open({ directory: true, title: "Open a book folder (it contains book.json)" }));
+  const picked = dir ?? (await open({ directory: true, title: "Open a book folder (it contains book.json or book.toml)" }));
   if (typeof picked !== "string") return;
   busy.value = true;
   try {
@@ -57,7 +58,7 @@ function shortName(path: string) {
 <template>
   <div class="welcome">
     <section class="intro">
-      <div class="logo"><Icon name="book" /></div>
+      <div class="logo"><BookOpen aria-hidden="true" /></div>
       <h1>Book Craft</h1>
       <p class="lead">Write your book in Markdown. Get a Windows app — portable .exe, setup .exe, .msi or .msix — with one click.</p>
       <ul class="features">
@@ -71,40 +72,37 @@ function shortName(path: string) {
     </section>
 
     <section class="actions">
-      <form class="card" @submit.prevent="create">
-        <h3>Start a new book</h3>
-        <label class="field">
-          <span>Title</span>
-          <input class="input" v-model="title" placeholder="The Salt Road" required autofocus />
-        </label>
-        <label class="field">
-          <span>Author</span>
-          <input class="input" v-model="author" placeholder="Your name" />
-        </label>
-        <div class="field">
-          <span>Location</span>
-          <div class="input-row">
-            <input class="input" :value="target" readonly placeholder="Choose a folder…" @click="pickParent" />
-            <button type="button" class="btn" @click="pickParent"><Icon name="folder" />Choose</button>
-          </div>
-          <small>A new folder named after the book is created there, with sample chapters you can edit.</small>
-        </div>
-        <button class="btn primary big" type="submit" :disabled="busy || !title.trim() || !parent">Create book</button>
-      </form>
+      <UiCard title="Start a new book">
+        <form class="form" @submit.prevent="create">
+          <UiField label="Title" for="new-title">
+            <UiInput id="new-title" v-model="title" placeholder="The Salt Road" autofocus />
+          </UiField>
+          <UiField label="Author" for="new-author">
+            <UiInput id="new-author" v-model="author" placeholder="Your name" />
+          </UiField>
+          <UiField label="Location" hint="A new folder named after the book is created there, with sample chapters you can edit.">
+            <div class="row">
+              <UiInput :model-value="target" readonly placeholder="Choose a folder…" aria-label="Location" @click="pickParent" />
+              <UiButton :icon="FolderOpen" @click="pickParent">Choose</UiButton>
+            </div>
+          </UiField>
+          <UiButton variant="primary" size="lg" type="submit" :loading="busy" :disabled="!title.trim() || !parent">Create book</UiButton>
+        </form>
+      </UiCard>
 
-      <div class="card">
-        <h3>Open a book</h3>
-        <button class="btn" type="button" @click="openExisting()" :disabled="busy"><Icon name="folder" />Open folder…</button>
+      <UiCard title="Open a book">
+        <UiButton :icon="FolderOpen" :disabled="busy" @click="openExisting()">Open folder…</UiButton>
         <div v-if="store.info?.settings.recent.length" class="recent">
           <div class="recent-head">Recent</div>
           <button v-for="r in store.info.settings.recent" :key="r" type="button" class="recent-item" @click="openExisting(r)">
-            <Icon name="book" />
+            <Library class="r-ico" aria-hidden="true" />
             <span><b>{{ shortName(r) }}</b><small>{{ r }}</small></span>
           </button>
         </div>
-      </div>
+      </UiCard>
 
       <div v-if="store.info && !store.info.readerTemplate" class="notice warn">
+        <TriangleAlert class="r-ico" aria-hidden="true" />
         The reader template is missing, so books can be written but not built yet. Run <code>bun run prepare:resources</code> and restart.
       </div>
     </section>
@@ -115,17 +113,22 @@ function shortName(path: string) {
 .welcome { min-height: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 56px; padding: 48px; }
 .intro { flex: 0 1 420px; display: flex; flex-direction: column; gap: 14px; }
 .logo { width: 56px; height: 56px; border-radius: 14px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
-.logo .icon { width: 28px; height: 28px; }
+.logo svg { width: 28px; height: 28px; }
 .intro h1 { font-size: 40px; letter-spacing: -0.01em; }
 .lead { font-size: 17px; line-height: 1.5; color: var(--muted); margin: 0; }
 .features { margin: 4px 0 0; padding-left: 20px; line-height: 1.9; }
 .version { color: var(--muted); font-size: 12px; margin: 0; }
 .actions { flex: 0 1 460px; display: flex; flex-direction: column; gap: 16px; }
+.form { display: flex; flex-direction: column; gap: 14px; }
+.row { display: flex; gap: 8px; }
+.row > :first-child { flex: 1; }
 .recent { display: flex; flex-direction: column; gap: 2px; }
 .recent-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; margin: 4px 0; }
-.recent-item { display: flex; gap: 10px; align-items: center; border: 0; background: none; text-align: left; padding: 8px; border-radius: 8px; cursor: pointer; min-width: 0; }
+.recent-item { display: flex; gap: 10px; align-items: center; border: 0; background: none; color: var(--ink); text-align: left; padding: 8px; border-radius: 8px; cursor: pointer; min-width: 0; font: inherit; }
 .recent-item:hover { background: var(--panel-2); }
 .recent-item span { display: flex; flex-direction: column; min-width: 0; }
 .recent-item small { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r-ico { width: 18px; height: 18px; flex: none; color: var(--muted); }
+.notice { display: flex; gap: 8px; align-items: flex-start; }
 code { font-family: var(--mono); font-size: 12px; }
 </style>

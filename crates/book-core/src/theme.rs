@@ -56,6 +56,8 @@ pub fn theme_css(config: &BookConfig, asset_base: &str) -> String {
         t.max_width.clamp(420, 1400),
         if t.scene_break.trim().is_empty() { "\"\"".to_string() } else { css_string(&t.scene_break) },
     ));
+    // The :root rule above would otherwise override the dark theme's lighter accent text.
+    css.push_str("[data-theme=\"dark\"] { --bc-accent-ink: color-mix(in srgb, var(--bc-accent) 55%, white); }\n");
     if t.scene_break.trim().is_empty() {
         css.push_str(".bc-chapter hr { border-top: 1px solid var(--bc-line); width: 30%; }\n");
     }

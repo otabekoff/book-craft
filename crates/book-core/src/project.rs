@@ -12,9 +12,9 @@ use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::config::{BookConfig, CONFIG_FILE, ChapterRef};
+use crate::config::{BookConfig, CONFIG_FILE, ChapterRef, TOML_CONFIG_FILE};
 use crate::samples;
 
 #[derive(Debug, Clone, Serialize)]
@@ -36,26 +36,71 @@ pub struct AssetInfo {
     pub kind: String,
 }
 
+/// Which file holds the book's settings. Both carry the same data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConfigFormat {
+    Json,
+    Toml,
+}
+
+impl ConfigFormat {
+    pub fn file_name(self) -> &'static str {
+        match self {
+            ConfigFormat::Json => CONFIG_FILE,
+            ConfigFormat::Toml => TOML_CONFIG_FILE,
+        }
+    }
+}
+
 pub struct Project {
     pub root: PathBuf,
     pub config: BookConfig,
+    pub format: ConfigFormat,
 }
 
 impl Project {
+    /// Opens a book folder. `book.toml` wins if both settings files exist.
     pub fn open(root: impl AsRef<Path>) -> Result<Self> {
         let root = root.as_ref().to_path_buf();
-        let file = root.join(CONFIG_FILE);
-        let text = fs::read_to_string(&file)
-            .with_context(|| format!("No {CONFIG_FILE} in {}", root.display()))?;
-        let config: BookConfig =
-            serde_json::from_str(&text).with_context(|| format!("{CONFIG_FILE} is not valid"))?;
-        Ok(Self { root, config })
+        let format = if root.join(TOML_CONFIG_FILE).is_file() {
+            ConfigFormat::Toml
+        } else if root.join(CONFIG_FILE).is_file() {
+            ConfigFormat::Json
+        } else {
+            bail!("{} is not a book folder (no {TOML_CONFIG_FILE} or {CONFIG_FILE})", root.display());
+        };
+        let name = format.file_name();
+        let text = fs::read_to_string(root.join(name)).with_context(|| format!("Reading {name}"))?;
+        let config: BookConfig = match format {
+            ConfigFormat::Json => serde_json::from_str(&text).with_context(|| format!("{name} is not valid"))?,
+            ConfigFormat::Toml => toml::from_str(&text).with_context(|| format!("{name} is not valid"))?,
+        };
+        Ok(Self { root, config, format })
+    }
+
+    pub fn is_book_folder(root: &Path) -> bool {
+        root.join(CONFIG_FILE).is_file() || root.join(TOML_CONFIG_FILE).is_file()
+    }
+
+    /// Switches the settings file to `format`, removing the old one.
+    pub fn set_format(&mut self, format: ConfigFormat) -> Result<()> {
+        if format == self.format {
+            return Ok(());
+        }
+        let old = self.root.join(self.format.file_name());
+        self.format = format;
+        self.save()?;
+        if old.is_file() {
+            fs::remove_file(old)?;
+        }
+        Ok(())
     }
 
     /// Creates a new project with sample chapters that show every block type.
     pub fn create(root: impl AsRef<Path>, title: &str, author: &str) -> Result<Self> {
         let root = root.as_ref().to_path_buf();
-        if root.join(CONFIG_FILE).exists() {
+        if Self::is_book_folder(&root) {
             bail!("{} already contains a book project", root.display());
         }
         fs::create_dir_all(root.join("chapters"))?;
@@ -77,17 +122,24 @@ impl Project {
         fs::write(root.join("assets/icon.png"), samples::default_icon_png(&config.meta.accent)?)?;
         config.meta.icon = "assets/icon.png".into();
 
-        let project = Self { root, config };
+        let project = Self { root, config, format: ConfigFormat::Json };
         project.save()?;
         fs::write(project.root.join(".gitignore"), "dist/\n")?;
         Ok(project)
     }
 
     pub fn save(&self) -> Result<()> {
-        let text = serde_json::to_string_pretty(&self.config)?;
-        let tmp = self.root.join(format!("{CONFIG_FILE}.tmp"));
+        let text = match self.format {
+            ConfigFormat::Json => serde_json::to_string_pretty(&self.config)?,
+            ConfigFormat::Toml => format!(
+                "# Book Craft settings. Edit here or in the studio.\n\n{}",
+                toml::to_string_pretty(&self.config)?
+            ),
+        };
+        let name = self.format.file_name();
+        let tmp = self.root.join(format!("{name}.tmp"));
         fs::write(&tmp, text)?;
-        fs::rename(&tmp, self.root.join(CONFIG_FILE))?;
+        fs::rename(&tmp, self.root.join(name))?;
         Ok(())
     }
 
@@ -353,5 +405,23 @@ mod tests {
         assert_eq!(again.config.chapters.len(), p.config.chapters.len());
         p.remove_chapter(&f).unwrap();
         assert!(!dir.path().join(&f).exists());
+    }
+
+    #[test]
+    fn switches_between_json_and_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut p = Project::create(dir.path(), "Formats", "A").unwrap();
+        p.config.meta.subtitle = "with \"quotes\" and ünïcode".into();
+        p.set_format(ConfigFormat::Toml).unwrap();
+        assert!(dir.path().join("book.toml").is_file());
+        assert!(!dir.path().join("book.json").exists());
+        let t = Project::open(dir.path()).unwrap();
+        assert_eq!(t.format, ConfigFormat::Toml);
+        assert_eq!(t.config.meta.subtitle, p.config.meta.subtitle);
+        assert_eq!(t.config.chapters.len(), p.config.chapters.len());
+        assert_eq!(t.config.typography.line_height, p.config.typography.line_height);
+        let mut t = t;
+        t.set_format(ConfigFormat::Json).unwrap();
+        assert!(Project::open(dir.path()).unwrap().format == ConfigFormat::Json);
     }
 }

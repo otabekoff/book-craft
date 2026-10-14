@@ -99,6 +99,8 @@
 
   function show(view) {
     ["home", "reader", "about"].forEach((v) => ($(v).hidden = v !== view));
+    if (view === "home") setSubtitle("");
+    if (view === "about") setSubtitle("About this book");
     if (view !== "about") state.lastView = view;
     closePanels();
   }
@@ -263,6 +265,7 @@
     }
     $("toolbar-title").textContent = b.chapters[i].title;
     document.title = b.chapters[i].title + " — " + b.meta.title;
+    setSubtitle(b.chapters[i].title);
     document.querySelectorAll("#toc-list > li > a").forEach((a) => {
       if (Number(a.dataset.index) === i) a.setAttribute("aria-current", "page");
       else a.removeAttribute("aria-current");
@@ -685,6 +688,53 @@
     else if (load("tocHidden", false)) $("reader").classList.add("toc-hidden");
   }
 
+  /* ---------------------------------------------------------------- icons & title bar */
+
+  function fillIcons(root) {
+    const icons = window.ReaderIcons || {};
+    root.querySelectorAll("[data-icon]").forEach((el) => {
+      if (!el.firstChild && icons[el.dataset.icon]) el.innerHTML = icons[el.dataset.icon];
+    });
+  }
+
+  function setSubtitle(text) {
+    $("tb-sub").textContent = text || "";
+  }
+
+  async function setupTitleBar() {
+    const tauri = window.__TAURI__;
+    if (state.book.reader.titleBar === "native" || !tauri || !tauri.window) return;
+    const win = tauri.window.getCurrentWindow();
+    $("titlebar").hidden = false;
+    $("app").classList.add("has-titlebar");
+    $("tb-title").textContent = state.book.meta.title;
+    $("tb-min").addEventListener("click", () => win.minimize());
+    $("tb-max").addEventListener("click", () => win.toggleMaximize());
+    $("tb-close").addEventListener("click", () => {
+      saveNow();
+      win.close();
+    });
+    const sync = async () => {
+      let max = false;
+      try {
+        max = await win.isMaximized();
+      } catch (e) {
+        /* ignore */
+      }
+      const b = $("tb-max");
+      b.querySelector(".glyph").innerHTML = max ? "&#xE923;" : "&#xE922;";
+      b.setAttribute("aria-label", max ? "Restore" : "Maximize");
+      b.title = max ? "Restore" : "Maximize";
+    };
+    try {
+      await win.onResized(sync);
+      await win.onFocusChanged(({ payload }) => $("titlebar").classList.toggle("blurred", !payload));
+    } catch (e) {
+      /* events not permitted: the buttons still work */
+    }
+    sync();
+  }
+
   /* ---------------------------------------------------------------- start */
 
   async function start() {
@@ -700,6 +750,8 @@
     if (!load("remember", true)) state.book.reader.rememberPosition = false;
     document.title = state.book.meta.title;
     document.documentElement.lang = state.book.meta.language || "en";
+    fillIcons(document);
+    setupTitleBar();
     wire();
     applyDisplay();
     renderToc();

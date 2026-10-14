@@ -9,6 +9,7 @@ pub mod pak;
 pub mod project;
 pub mod render;
 pub mod samples;
+pub mod signing;
 pub mod theme;
 pub mod tools;
 

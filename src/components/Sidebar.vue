@@ -1,19 +1,22 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, type Component } from "vue";
+import {
+  ArrowDown, ArrowUp, BookMarked, BookOpen, Ellipsis, Eye, EyeOff, FileText, FolderOutput, Hammer, Images,
+  LayoutGrid, ListOrdered, Palette, PenLine, Play, Plus, TextCursorInput, Trash, TriangleAlert,
+} from "@lucide/vue";
 import { api, ASSET_BASE, errorText } from "../api";
 import { applyProject, closeProject, notify, saveConfigNow, store, type Section } from "../store";
-import Icon from "./Icon.vue";
+import { UiButton, UiDialog, UiField, UiIconButton, UiInput, UiMenu, type MenuItem } from "../ui";
 
-const sections: { id: Section; label: string; icon: string }[] = [
-  { id: "write", label: "Write", icon: "write" },
-  { id: "details", label: "Book details", icon: "details" },
-  { id: "appearance", label: "Appearance", icon: "appearance" },
-  { id: "modules", label: "Blocks & features", icon: "modules" },
-  { id: "assets", label: "Assets", icon: "assets" },
-  { id: "build", label: "Build", icon: "build" },
+const sections: { id: Section; label: string; icon: Component }[] = [
+  { id: "write", label: "Write", icon: PenLine },
+  { id: "details", label: "Book details", icon: FileText },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "modules", label: "Blocks & features", icon: LayoutGrid },
+  { id: "assets", label: "Assets", icon: Images },
+  { id: "build", label: "Build", icon: Hammer },
 ];
 
-const menu = ref<{ file: string; x: number; y: number } | null>(null);
 const dialog = ref<{ mode: "add" | "rename"; file?: string; value: string } | null>(null);
 const dragFrom = ref<number | null>(null);
 const dropAt = ref<number | null>(null);
@@ -41,11 +44,6 @@ const items = computed(() =>
 function select(file: string) {
   store.currentChapter = file;
   store.section = "write";
-}
-
-function openMenu(e: MouseEvent, file: string) {
-  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  menu.value = { file, x: Math.min(r.left, window.innerWidth - 220), y: r.bottom + 4 };
 }
 
 function chapterRef(file: string) {
@@ -80,15 +78,6 @@ function move(file: string, delta: number) {
   list.splice(j, 0, item);
 }
 
-function setKind(file: string, kind: string) {
-  chapterRef(file).kind = kind;
-}
-
-function toggleHidden(file: string) {
-  const c = chapterRef(file);
-  c.hidden = !c.hidden;
-}
-
 async function remove(file: string) {
   const info = items.value.find((c) => c.file === file);
   if (!confirm(`Remove “${info?.title ?? file}” from the book?\n\nThe file is moved to chapters/.trash, not deleted.`)) return;
@@ -98,6 +87,28 @@ async function remove(file: string) {
   } catch (e) {
     notify(errorText(e), "error");
   }
+}
+
+function menuFor(file: string, index: number): MenuItem[] {
+  const c = chapterRef(file);
+  const kind = (k: string, label: string, icon: Component): MenuItem => ({
+    label: (c.kind || "chapter") === k ? `✓ ${label}` : label,
+    icon,
+    action: () => (c.kind = k),
+  });
+  return [
+    { label: "Set title…", icon: TextCursorInput, action: () => (dialog.value = { mode: "rename", file, value: c.title }) },
+    { label: "Move up", icon: ArrowUp, disabled: index === 0, action: () => move(file, -1) },
+    { label: "Move down", icon: ArrowDown, disabled: index === items.value.length - 1, action: () => move(file, 1) },
+    { separator: true },
+    kind("chapter", "Numbered chapter", ListOrdered),
+    kind("front", "Front matter", BookOpen),
+    kind("part", "Part divider", BookMarked),
+    kind("back", "Back matter", FolderOutput),
+    { separator: true },
+    { label: c.hidden ? "Include in book" : "Leave out of book", icon: c.hidden ? Eye : EyeOff, action: () => (c.hidden = !c.hidden) },
+    { label: "Remove…", icon: Trash, danger: true, action: () => remove(file) },
+  ];
 }
 
 function onDrop(index: number) {
@@ -118,12 +129,16 @@ function numberFor(i: number) {
   const c = items.value[i];
   return c && c.kind === "chapter" && !c.hidden ? String(n) : "·";
 }
+
+function tryInReader() {
+  api.testRead().catch((e) => notify(errorText(e), "error"));
+}
 </script>
 
 <template>
-  <aside class="sidebar" @click="menu = null">
+  <aside class="sidebar">
     <div class="sidebar-head">
-      <div class="book-badge"><img v-if="iconUrl" :src="iconUrl" alt="" /></div>
+      <div class="book-badge"><img v-if="iconUrl" :src="iconUrl" alt="" /><BookOpen v-else class="fallback" /></div>
       <div style="min-width: 0">
         <div class="book-name">{{ store.config?.meta.title }}</div>
         <div class="book-path" :title="store.root">{{ store.root }}</div>
@@ -137,7 +152,7 @@ function numberFor(i: number) {
         :aria-current="store.section === s.id ? 'page' : undefined"
         @click="store.section = s.id"
       >
-        <Icon :name="s.icon" />{{ s.label }}
+        <component :is="s.icon" class="nav-ico" aria-hidden="true" />{{ s.label }}
         <span v-if="s.id === 'build' && store.problems.length" class="dot" :title="store.problems.join('\n')"></span>
         <span v-if="s.id === 'assets'" class="count">{{ store.assets.length }}</span>
       </button>
@@ -145,9 +160,7 @@ function numberFor(i: number) {
     <div class="chapters">
       <div class="chapters-head">
         <span>Chapters</span>
-        <button class="icon-btn" type="button" title="Add chapter" aria-label="Add chapter" @click.stop="dialog = { mode: 'add', value: '' }">
-          <Icon name="plus" />
-        </button>
+        <UiIconButton :icon="Plus" label="Add chapter" size="sm" @click="dialog = { mode: 'add', value: '' }" />
       </div>
       <div
         v-for="(c, i) in items"
@@ -169,55 +182,45 @@ function numberFor(i: number) {
       >
         <span class="num">{{ numberFor(i) }}</span>
         <span class="title">{{ c.title }}</span>
-        <Icon v-if="c.missing" name="warn" style="color: var(--danger)" />
-        <button class="icon-btn menu-btn" type="button" aria-label="Chapter options" @click.stop="openMenu($event, c.file)">
-          <Icon name="more" />
-        </button>
+        <TriangleAlert v-if="c.missing" class="warn-ico" aria-label="File missing" />
+        <UiMenu :items="menuFor(c.file, i)">
+          <UiIconButton :icon="Ellipsis" label="Chapter options" size="sm" class="menu-btn" />
+        </UiMenu>
       </div>
       <div
-        class="chapter-item"
-        style="min-height: 12px"
+        class="chapter-item drop-tail"
         :class="{ 'drop-before': dropAt === items.length }"
         @dragover.prevent="dropAt = items.length"
         @drop.prevent="onDrop(items.length)"
       ></div>
     </div>
     <div class="sidebar-foot">
-      <button class="btn small ghost" type="button" @click="api.testRead().catch((e) => notify(errorText(e), 'error'))" title="Open the book in the real reader without building packages">
-        <Icon name="play" />Try in reader
-      </button>
+      <UiButton variant="ghost" size="sm" :icon="Play" title="Open the book in the real reader without building packages" @click="tryInReader">
+        Try in reader
+      </UiButton>
       <span style="flex: 1"></span>
-      <button class="btn small ghost" type="button" @click="closeProject">Close</button>
+      <UiButton variant="ghost" size="sm" @click="closeProject">Close</UiButton>
     </div>
 
-    <div v-if="menu" class="menu" :style="{ left: menu.x + 'px', top: menu.y + 'px' }" @click.stop>
-      <button type="button" @click="dialog = { mode: 'rename', file: menu.file, value: chapterRef(menu.file).title }; menu = null">Set title…</button>
-      <button type="button" @click="move(menu.file, -1); menu = null"><Icon name="up" />Move up</button>
-      <button type="button" @click="move(menu.file, 1); menu = null"><Icon name="down" />Move down</button>
-      <hr />
-      <button type="button" @click="setKind(menu.file, 'chapter'); menu = null">Numbered chapter</button>
-      <button type="button" @click="setKind(menu.file, 'front'); menu = null">Front matter (preface, dedication)</button>
-      <button type="button" @click="setKind(menu.file, 'part'); menu = null">Part divider</button>
-      <button type="button" @click="setKind(menu.file, 'back'); menu = null">Back matter (appendix)</button>
-      <hr />
-      <button type="button" @click="toggleHidden(menu.file); menu = null">
-        {{ chapterRef(menu.file).hidden ? "Include in book" : "Leave out of book" }}
-      </button>
-      <button type="button" class="danger" style="color: var(--danger)" @click="remove(menu.file); menu = null"><Icon name="trash" />Remove…</button>
-    </div>
-
-    <div v-if="dialog" class="overlay" @click.self="dialog = null">
-      <form class="dialog" @submit.prevent="dialog.mode === 'add' ? addChapter() : rename()">
-        <h2>{{ dialog.mode === "add" ? "New chapter" : "Chapter title" }}</h2>
-        <label class="field">
-          <span>Title</span>
-          <input class="input" v-model="dialog.value" autofocus :placeholder="dialog.mode === 'rename' ? 'Leave empty to use the chapter’s first heading' : 'Chapter title'" />
-        </label>
-        <div class="dialog-actions">
-          <button type="button" class="btn" @click="dialog = null">Cancel</button>
-          <button type="submit" class="btn primary">{{ dialog.mode === "add" ? "Add chapter" : "Save" }}</button>
-        </div>
+    <UiDialog v-if="dialog" :title="dialog.mode === 'add' ? 'New chapter' : 'Chapter title'" @close="dialog = null">
+      <form id="chapter-form" @submit.prevent="dialog.mode === 'add' ? addChapter() : rename()">
+        <UiField label="Title" for="chapter-title" :hint="dialog.mode === 'rename' ? 'Leave empty to use the chapter’s first heading.' : undefined">
+          <UiInput id="chapter-title" v-model="dialog.value" autofocus placeholder="Chapter title" />
+        </UiField>
       </form>
-    </div>
+      <template #actions>
+        <UiButton @click="dialog = null">Cancel</UiButton>
+        <UiButton variant="primary" type="submit" form="chapter-form">{{ dialog.mode === "add" ? "Add chapter" : "Save" }}</UiButton>
+      </template>
+    </UiDialog>
   </aside>
 </template>
+
+<style scoped>
+.nav-ico { width: 18px; height: 18px; flex: none; }
+.fallback { width: 18px; height: 18px; margin: 7px; color: var(--muted); }
+.warn-ico { width: 16px; height: 16px; color: var(--danger); flex: none; }
+.chapter-item :deep(.menu-btn) { opacity: 0; }
+.chapter-item:hover :deep(.menu-btn), .chapter-item[aria-current="true"] :deep(.menu-btn), .chapter-item :deep(.menu-btn:focus-visible) { opacity: 1; }
+.drop-tail { min-height: 12px; }
+</style>

@@ -53,7 +53,7 @@ pub fn build(stage: &Stage, makensis: &Path, out: &Path) -> Result<()> {
         s.push_str(&format!("!insertmacro MUI_PAGE_LICENSE \"{}\"\n", ns(&lic.display().to_string())));
     }
     s.push_str("!insertmacro MUI_PAGE_DIRECTORY\n!insertmacro MUI_PAGE_INSTFILES\n!insertmacro MUI_PAGE_FINISH\n");
-    s.push_str("!insertmacro MUI_UNPAGE_CONFIRM\n!insertmacro MUI_UNPAGE_INSTFILES\n");
+    s.push_str("!insertmacro MUI_UNPAGE_CONFIRM\n!insertmacro MUI_UNPAGE_COMPONENTS\n!insertmacro MUI_UNPAGE_INSTFILES\n");
     s.push_str("!insertmacro MUI_LANGUAGE \"English\"\n\n");
 
     let v = c.version4();
@@ -131,6 +131,14 @@ pub fn build(stage: &Stage, makensis: &Path, out: &Path) -> Result<()> {
     s.push_str("  Delete \"$INSTDIR\\${EXE}\"\n  Delete \"$INSTDIR\\book.pak\"\n  Delete \"$INSTDIR\\uninstall.exe\"\n  RMDir \"$INSTDIR\"\n");
     s.push_str("  Delete \"$SMPROGRAMS\\${PRODUCTFILE}.lnk\"\n  Delete \"$DESKTOP\\${PRODUCTFILE}.lnk\"\n");
     s.push_str("  DeleteRegKey SHCTX \"${UNINSTKEY}\"\n  DeleteRegKey SHCTX \"${APPKEY}\"\n");
+    s.push_str("SectionEnd\n\n");
+
+    // Reading data lives in the reader's per-user folders (WebView2 profile, position,
+    // bookmarks). Unticked by default, so silent uninstalls (/S) and upgrades keep it.
+    let data = ns(&c.meta.package_id);
+    s.push_str("Section /o \"un.Delete my reading position and bookmarks\" UnReadingData\n");
+    s.push_str("  SetShellVarContext current\n");
+    s.push_str(&format!("  RMDir /r \"$LOCALAPPDATA\\{data}\"\n  RMDir /r \"$APPDATA\\{data}\"\n"));
     s.push_str("SectionEnd\n");
 
     // UTF-8 with BOM so NSIS reads non-ASCII titles correctly.

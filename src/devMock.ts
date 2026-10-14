@@ -17,7 +17,7 @@ const config = {
   },
   chapters: chapters.map((c) => ({ file: c.file, title: "", hidden: false, kind: "chapter" })),
   typography: { bodyFont: "sitka", headingFont: "same", customFont: "", baseSize: 19, lineHeight: 1.65, maxWidth: 700, justify: false, hyphenate: true, dropCaps: true, smartQuotes: true, sceneBreak: "✻ ✻ ✻", paragraphStyle: "spaced", headingNumbers: false, customCss: "" },
-  reader: { defaultTheme: "light", allowThemeChange: true, allowFontSizeChange: true, allowFontChange: true, showToc: true, showProgress: true, rememberPosition: true, showHomeScreen: true, enableSearch: true, enableBookmarks: true, windowWidth: 1200, windowHeight: 820, minWidth: 480, minHeight: 400, allowCopy: true, allowPrint: true, openLinksExternally: true },
+  reader: { defaultTheme: "light", allowThemeChange: true, allowFontSizeChange: true, allowFontChange: true, showToc: true, showProgress: true, rememberPosition: true, showHomeScreen: true, enableSearch: true, enableBookmarks: true, windowWidth: 1200, windowHeight: 820, minWidth: 480, minHeight: 400, allowCopy: true, allowPrint: true, openLinksExternally: true, titleBar: "custom" },
   modules: {
     code: { enabled: true, highlight: true, lineNumbers: false, copyButton: true, wrapLines: false, lightTheme: "InspiredGitHub", darkTheme: "OneHalfDark", runnable: true },
     math: { enabled: true, numberEquations: true, chemistry: true },
@@ -28,7 +28,7 @@ const config = {
   build: { portable: true, nsis: true, msi: false, msix: false, outputDir: "dist", installMode: "perUser", desktopShortcut: true, startMenuShortcut: true, launchAfterInstall: true, licenseFile: "", webview2: "embed", signing: { enabled: false, certificate: "", timestampUrl: "http://timestamp.digicert.com" }, productName: "" },
 };
 
-const project = () => ({ root: "D:\\Books\\The Salt Road", config, chapters, chapterClass: "bc-chapter bc-dropcaps", problems: [] });
+const project = () => ({ root: "D:\\Books\\The Salt Road", config, chapters, chapterClass: "bc-chapter bc-dropcaps", problems: [], format: "json" });
 const tools = ["NSIS", "WiX Toolset 3", "MakeAppx", "SignTool", "WebView2 bootstrapper"].map((name) => ({ name, neededFor: "", path: "C:\\tools\\" + name, help: "" }));
 const info = { version: "0.1.0-mock", readerTemplate: "reader.exe", vendor: "vendor", tools, codeThemes: ["InspiredGitHub", "OneHalfDark"], fonts: [["sitka", "Sitka"], ["georgia", "Georgia"]], settings: { recent: ["D:\\Books\\The Salt Road"], tools: { makensis: "", wix: "", makeappx: "", signtool: "", webview2Bootstrapper: "" }, theme: "" } };
 

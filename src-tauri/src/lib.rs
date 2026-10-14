@@ -25,6 +25,7 @@ pub fn run() {
             commands::project_close,
             commands::project_save_config,
             commands::project_validate,
+            commands::project_set_format,
             commands::chapter_read,
             commands::chapter_write,
             commands::chapter_add,
@@ -37,6 +38,9 @@ pub fn run() {
             commands::test_read,
             commands::reveal,
             commands::launch,
+            commands::certificate_inspect,
+            commands::certificate_create,
+            commands::certificate_trust,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Book Craft");

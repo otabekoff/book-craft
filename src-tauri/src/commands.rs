@@ -6,11 +6,12 @@ use std::path::PathBuf;
 
 use book_core::config::BookConfig;
 use book_core::package::{self, BuildReport, BuildRequest, Target};
-use book_core::project::{AssetInfo, ChapterInfo};
+use book_core::project::{AssetInfo, ChapterInfo, ConfigFormat};
 use book_core::render::{Heading, RenderOptions, render_markdown};
-use book_core::{Project, icons, pak, theme};
+use book_core::signing::{CertificateInfo, TestCertificate};
+use book_core::{Project, icons, pak, signing, theme};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::state::{AppState, StudioSettings};
 
@@ -66,10 +67,12 @@ pub struct ProjectData {
     chapters: Vec<ChapterInfo>,
     chapter_class: String,
     problems: Vec<String>,
+    format: ConfigFormat,
 }
 
 fn project_data(p: &Project) -> ProjectData {
     ProjectData {
+        format: p.format,
         root: p.root.display().to_string(),
         config: p.config.clone(),
         chapters: p.chapters(),
@@ -273,4 +276,39 @@ pub fn launch(path: String) -> R<()> {
         return Err("Only built packages can be opened from here.".into());
     }
     tauri_plugin_opener::open_path(path, None::<&str>).map_err(err)
+}
+
+#[tauri::command]
+pub async fn certificate_inspect(path: String, password: Option<String>) -> R<CertificateInfo> {
+    tauri::async_runtime::spawn_blocking(move || signing::inspect(std::path::Path::new(&path), password.as_deref()))
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("{e:#}"))
+}
+
+/// Makes a self-signed test certificate in the studio's own data folder (never in the book folder).
+#[tauri::command]
+pub async fn certificate_create(app: AppHandle, subject: String, password: String) -> R<TestCertificate> {
+    let dir = app.path().app_data_dir().map_err(err)?.join("certificates");
+    tauri::async_runtime::spawn_blocking(move || signing::create_test_certificate(&subject, &password, &dir))
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("{e:#}"))
+}
+
+/// Shows a Windows administrator prompt to trust a test certificate for MSIX installs.
+#[tauri::command]
+pub async fn certificate_trust(cer: String) -> R<()> {
+    tauri::async_runtime::spawn_blocking(move || signing::trust_for_msix(std::path::Path::new(&cer)))
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("{e:#}"))
+}
+/// Moves the book's settings between book.json and book.toml.
+#[tauri::command]
+pub fn project_set_format(state: State<AppState>, format: ConfigFormat) -> R<ProjectData> {
+    with_project(&state, |p| {
+        p.set_format(format)?;
+        Ok(project_data(p))
+    })
 }

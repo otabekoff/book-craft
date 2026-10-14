@@ -710,8 +710,10 @@ details.bc-callout:not([open]) { padding-bottom: 0.6em; }
   position: absolute;
   left: 0;
   top: 0;
-  width: 2em;
-  height: 2em;
+  /* 2em of the list item, expressed in this smaller font size, so the circle's
+     centre sits exactly on the connecting line at 1em. */
+  width: calc(2em / 0.85);
+  height: calc(2em / 0.85);
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -721,11 +723,14 @@ details.bc-callout:not([open]) { padding-bottom: 0.6em; }
   font-weight: 700;
   font-size: 0.85em;
 }
-.bc-steps ol > li:not(:last-child)::after { content: ""; position: absolute; left: calc(1em - 1px); top: 2.1em; bottom: 0.2em; width: 2px; background: var(--bc-line); }
+.bc-steps ol > li:not(:last-child)::after { content: ""; position: absolute; left: calc(1em - 1px); top: 2.1em; bottom: 0.1em; width: 2px; background: var(--bc-line); }
 
-.bc-timeline ul { list-style: none; padding-left: 1.4em; border-left: 2px solid var(--bc-line); margin-left: 0.4em; }
+/* The rail and the dots are placed from the same variables so the dots are centred on it. */
+.bc-timeline ul { --dot: 14px; --rail: 2px; --gap: 1.1em; list-style: none; position: relative; margin-left: 0; padding-left: calc(var(--dot) + var(--gap)); }
+.bc-timeline ul::before { content: ""; position: absolute; left: calc((var(--dot) - var(--rail)) / 2); top: 0.5lh; bottom: 0.5lh; width: var(--rail); border-radius: 1px; background: var(--bc-line); }
 .bc-timeline li { position: relative; margin: 0 0 1em; }
-.bc-timeline li::before { content: ""; position: absolute; left: calc(-1.4em - 7px); top: 0.45em; width: 12px; height: 12px; border-radius: 50%; background: var(--bc-paper); border: 3px solid var(--bc-accent); }
+.bc-timeline li:last-child { margin-bottom: 0; }
+.bc-timeline li::before { content: ""; position: absolute; box-sizing: border-box; left: calc(-1 * (var(--dot) + var(--gap))); top: calc(0.5lh - var(--dot) / 2); width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--bc-paper); border: 3px solid var(--bc-accent-ink); }
 .bc-timeline li strong:first-child { color: var(--bc-accent-ink); }
 
 .bc-glossary dl dt { font-family: var(--bc-font-heading); font-size: 1.05em; }

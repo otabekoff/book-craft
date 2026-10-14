@@ -247,6 +247,8 @@ fn main() {
     let min_w = num_at("/reader/minWidth", 480.0).clamp(240.0, width);
     let min_h = num_at("/reader/minHeight", 400.0).clamp(200.0, height);
     let external = manifest.pointer("/reader/openLinksExternally").and_then(|v| v.as_bool()).unwrap_or(true);
+    // The reader UI draws its own title bar unless the book asks for the Windows one.
+    let native_title_bar = str_at("/reader/titleBar", "custom") == "native";
     let icon = read_entry(&mut archive, "_app/icon.png").and_then(|b| tauri::image::Image::from_bytes(&b).ok());
 
     let mut context = tauri::generate_context!();
@@ -267,6 +269,8 @@ fn main() {
                 .inner_size(width, height)
                 .min_inner_size(min_w, min_h)
                 .center()
+                .decorations(native_title_bar)
+                .shadow(true)
                 .visible(true)
                 .on_navigation(move |url| {
                     if url.host_str() == Some("book.localhost") || url.scheme() == "about" || url.scheme() == "data" {

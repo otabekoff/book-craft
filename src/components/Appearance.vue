@@ -1,11 +1,32 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { BookOpenText, Type } from "@lucide/vue";
 import { store } from "../store";
+import { UiCard, UiField, UiInput, UiRange, UiSegmented, UiSelect, UiSwitch, type SelectOption } from "../ui";
 import AssetPicker from "./AssetPicker.vue";
 
 const t = computed(() => store.config!.typography);
 const r = computed(() => store.config!.reader);
-const fonts = computed(() => store.info?.fonts ?? []);
+
+const fonts = computed<SelectOption<string>[]>(() => (store.info?.fonts ?? []).map(([value, label]) => ({ value, label })));
+const headingFonts = computed<SelectOption<string>[]>(() => [
+  { value: "same", label: "Same as body" },
+  ...fonts.value.filter((f) => f.value !== "custom"),
+]);
+const paragraphOptions: SelectOption<string>[] = [
+  { value: "spaced", label: "Space between paragraphs", description: "Easy to scan; common on screens" },
+  { value: "indent", label: "Indented", description: "First-line indent, like a printed novel" },
+];
+const titleBarOptions = [
+  { value: "custom", label: "Book’s own" },
+  { value: "native", label: "Windows" },
+];
+const themeOptions = [
+  { value: "light", label: "Light" },
+  { value: "sepia", label: "Sepia" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "Match Windows" },
+];
 
 const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
   { key: "showHomeScreen", label: "Home screen", hint: "Cover, description and “Continue reading” when the app opens." },
@@ -17,7 +38,7 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
   { key: "allowThemeChange", label: "Theme choice", hint: "Light, sepia, dark and “Match Windows”." },
   { key: "allowFontSizeChange", label: "Text size control", hint: "Ctrl + / Ctrl − and buttons." },
   { key: "allowFontChange", label: "Typeface choice", hint: "Readers can pick another font." },
-  { key: "allowCopy", label: "Allow copying text", hint: "Turn off to discourage copy and paste (code blocks stay copyable)." },
+  { key: "allowCopy", label: "Allow copying text", hint: "Off discourages copy and paste (code stays copyable)." },
   { key: "allowPrint", label: "Allow printing", hint: "Ctrl+P prints the current chapter." },
   { key: "openLinksExternally", label: "Open web links in the browser", hint: "Otherwise web links are ignored." },
 ];
@@ -34,104 +55,76 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
         </div>
       </div>
 
-      <section class="card">
-        <h3>Typography</h3>
+      <UiCard title="Typography" :icon="Type">
         <div class="grid">
-          <label class="field">
-            <span>Body typeface</span>
-            <select class="input" v-model="t.bodyFont">
-              <option v-for="[k, label] in fonts" :key="k" :value="k">{{ label }}</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Heading typeface</span>
-            <select class="input" v-model="t.headingFont">
-              <option value="same">Same as body</option>
-              <option v-for="[k, label] in fonts.filter(([k]) => k !== 'custom')" :key="k" :value="k">{{ label }}</option>
-            </select>
-          </label>
-          <div class="field" v-if="t.bodyFont === 'custom'">
-            <span>Font file</span>
+          <UiField label="Body typeface" for="a-body"><UiSelect id="a-body" v-model="t.bodyFont" :options="fonts" /></UiField>
+          <UiField label="Heading typeface" for="a-head"><UiSelect id="a-head" v-model="t.headingFont" :options="headingFonts" /></UiField>
+          <UiField v-if="t.bodyFont === 'custom'" label="Font file">
             <AssetPicker v-model="t.customFont" :extensions="['woff2', 'woff', 'ttf', 'otf']" subdir="fonts" placeholder="Choose a font file" />
-          </div>
-          <label class="field">
-            <span>Text size — {{ t.baseSize }} px</span>
-            <input type="range" min="14" max="26" v-model.number="t.baseSize" />
-          </label>
-          <label class="field">
-            <span>Line spacing — {{ t.lineHeight.toFixed(2) }}</span>
-            <input type="range" min="1.3" max="2.1" step="0.05" v-model.number="t.lineHeight" />
-          </label>
-          <label class="field">
-            <span>Text width — {{ t.maxWidth }} px</span>
-            <input type="range" min="520" max="1000" step="10" v-model.number="t.maxWidth" />
-          </label>
-          <label class="field">
-            <span>Paragraphs</span>
-            <select class="input" v-model="t.paragraphStyle">
-              <option value="spaced">Space between paragraphs</option>
-              <option value="indent">Indented, like a printed book</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Scene break (<code>***</code>)</span>
-            <input class="input" v-model="t.sceneBreak" placeholder="Empty = a thin line" />
-          </label>
-          <div class="field">
-            <span>Custom stylesheet</span>
+          </UiField>
+          <UiField label="Paragraphs" for="a-par"><UiSelect id="a-par" v-model="t.paragraphStyle" :options="paragraphOptions" /></UiField>
+        </div>
+        <div class="grid">
+          <UiField label="Text size">
+            <UiRange v-model="t.baseSize" :min="14" :max="26" :marks="[19]" aria-label="Text size" :format="(v) => v + ' px'" />
+          </UiField>
+          <UiField label="Line spacing">
+            <UiRange v-model="t.lineHeight" :min="1.3" :max="2.1" :step="0.05" aria-label="Line spacing" :format="(v) => v.toFixed(2)" />
+          </UiField>
+          <UiField label="Text width">
+            <UiRange v-model="t.maxWidth" :min="520" :max="1000" :step="10" aria-label="Text width" :format="(v) => v + ' px'" />
+          </UiField>
+        </div>
+        <div class="grid">
+          <UiField label="Scene break (***)" for="a-scene" hint="Empty = a thin line.">
+            <UiInput id="a-scene" v-model="t.sceneBreak" />
+          </UiField>
+          <UiField label="Custom stylesheet">
             <AssetPicker v-model="t.customCss" :extensions="['css']" subdir="styles" placeholder="None" />
-            <small>Style your own <code>::: my-block</code> blocks or override anything (classes start with <code>bc-</code>).</small>
-          </div>
+            <template #hint>Style your own <code>::: my-block</code> blocks or override anything (classes start with <code>bc-</code>).</template>
+          </UiField>
         </div>
         <div class="grid">
-          <label class="check"><input type="checkbox" v-model="t.dropCaps" /><span><b>Drop caps</b><small>Large first letter in each chapter.</small></span></label>
-          <label class="check"><input type="checkbox" v-model="t.justify" /><span><b>Justified text</b><small>Even right edge.</small></span></label>
-          <label class="check"><input type="checkbox" v-model="t.hyphenate" /><span><b>Hyphenation</b><small>Breaks long words at line ends.</small></span></label>
-          <label class="check"><input type="checkbox" v-model="t.smartQuotes" /><span><b>Smart punctuation</b><small>“Curly” quotes, en and em dashes, ellipses.</small></span></label>
-          <label class="check"><input type="checkbox" v-model="t.headingNumbers" /><span><b>Numbered sections</b><small>1. 1.1 1.2 …</small></span></label>
+          <UiSwitch v-model="t.dropCaps" label="Drop caps" description="Large first letter in each chapter." />
+          <UiSwitch v-model="t.justify" label="Justified text" description="Even right edge." />
+          <UiSwitch v-model="t.hyphenate" label="Hyphenation" description="Breaks long words at line ends." />
+          <UiSwitch v-model="t.smartQuotes" label="Smart punctuation" description="“Curly” quotes, dashes and ellipses." />
+          <UiSwitch v-model="t.headingNumbers" label="Numbered sections" description="1. 1.1 1.2 …" />
         </div>
-      </section>
+      </UiCard>
 
-      <section class="card">
-        <h3>Reader</h3>
+      <UiCard title="Reader" :icon="BookOpenText">
         <div class="grid">
-          <div class="field">
-            <span>Default theme</span>
-            <div class="seg">
-              <button v-for="th in ['light', 'sepia', 'dark', 'system']" :key="th" type="button" :aria-pressed="r.defaultTheme === th" @click="r.defaultTheme = th">
-                {{ th === "system" ? "Match Windows" : th[0].toUpperCase() + th.slice(1) }}
-              </button>
+          <UiField label="Default theme">
+            <UiSegmented v-model="r.defaultTheme" :options="themeOptions" aria-label="Default theme" />
+          </UiField>
+          <UiField label="Title bar" hint="The book’s own bar follows its theme and shows the chapter.">
+            <UiSegmented v-model="r.titleBar" :options="titleBarOptions" aria-label="Title bar" />
+          </UiField>
+          <UiField label="Window size">
+            <div class="pair">
+              <UiInput type="number" v-model="r.windowWidth" :min="400" :max="4000" aria-label="Window width" />
+              <span>×</span>
+              <UiInput type="number" v-model="r.windowHeight" :min="300" :max="3000" aria-label="Window height" />
             </div>
-          </div>
-          <label class="field">
-            <span>Window size</span>
-            <div class="input-row">
-              <input class="input" type="number" min="400" max="4000" v-model.number="r.windowWidth" aria-label="Window width" />
-              ×
-              <input class="input" type="number" min="300" max="3000" v-model.number="r.windowHeight" aria-label="Window height" />
+          </UiField>
+          <UiField label="Smallest window">
+            <div class="pair">
+              <UiInput type="number" v-model="r.minWidth" :min="320" :max="2000" aria-label="Minimum width" />
+              <span>×</span>
+              <UiInput type="number" v-model="r.minHeight" :min="240" :max="2000" aria-label="Minimum height" />
             </div>
-          </label>
-          <label class="field">
-            <span>Smallest window</span>
-            <div class="input-row">
-              <input class="input" type="number" min="320" max="2000" v-model.number="r.minWidth" aria-label="Minimum width" />
-              ×
-              <input class="input" type="number" min="240" max="2000" v-model.number="r.minHeight" aria-label="Minimum height" />
-            </div>
-          </label>
+          </UiField>
         </div>
         <div class="grid">
-          <label v-for="item in toggles" :key="item.key" class="check">
-            <input type="checkbox" v-model="(r as any)[item.key]" />
-            <span><b>{{ item.label }}</b><small>{{ item.hint }}</small></span>
-          </label>
+          <UiSwitch v-for="item in toggles" :key="item.key" v-model="(r as any)[item.key]" :label="item.label" :description="item.hint" />
         </div>
-      </section>
+      </UiCard>
     </div>
   </div>
 </template>
 
 <style scoped>
-code { font-family: var(--mono); font-size: 12px; }
-input[type="range"] { accent-color: var(--accent); }
+.pair { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+code { font-family: var(--mono); font-size: 11.5px; }
 </style>

@@ -14,6 +14,7 @@ pak-format = { path = "../pak-format" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
+toml = "1.1.8"
 two-face = { version = "0.5.2", default-features = false, features = ["syntect-fancy"] }
 uuid = { version = "1.28.0", features = ["v5"] }
 walkdir = "2.5.0"

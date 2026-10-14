@@ -67,6 +67,27 @@ cargo run -p bookcraft -- build "D:\Books\My Book" --targets portable,nsis,msi,m
 
 Set `BOOKCRAFT_CERT_PASSWORD` (or pass `--password`) to sign.
 
+```bash
+cargo run -p bookcraft -- cert new "CN=My Press" D:\certs --password secret
+```
+
+### Studio UI
+
+The studio uses its own component kit in `src/ui` (`UiButton`, `UiSelect`, `UiRange`, `UiSwitch`, `UiCheckbox`, `UiSegmented`, `UiInput`, `UiField`, `UiCard`, `UiDialog`, `UiMenu`, `UiColor`, `UiBadge`) and [Lucide](https://lucide.dev) icons from `@lucide/vue`. The reader has no build step, so its icons are generated from the same package: run `bun run reader-icons` after changing the list in `scripts/reader-icons.mjs`.
+
+## Book settings file
+
+Each book folder holds its settings in **`book.json`** or **`book.toml`** (same data; TOML is nicer to edit by hand). Switch in **Book details → Settings file**; if both exist, `book.toml` wins.
+
+## Signing
+
+1. **Build → Code signing → Create test certificate…** makes a self-signed `.pfx` (kept in Book Craft's data folder, never in the book) to try signing.
+2. For real releases use a certificate from a certificate authority, or Azure Trusted Signing; readers' PCs don't trust test certificates.
+3. The studio checks the certificate before building: password, expiry, code-signing use and — for MSIX — that its subject equals the Publisher ID.
+4. To install an MSIX signed with a test certificate on your own PC, use **Trust on this PC…** (asks for administrator permission and adds it to *Local Machine › Trusted People*). Developer Mode can also register the unpacked package.
+
+The portable exe is signed after the book is appended, so the signature covers the book too.
+
 ## Writing
 
 Chapters are Markdown with GitHub extensions (tables, task lists, footnotes, strikethrough, `==highlight==`, `H~2~O`, `x^2^`, `||spoiler||`, `> [!NOTE]` alerts). Blocks use `:::` containers and fenced code; options go in `{ }`. Nest containers by using more colons on the outside (`::::`).
@@ -93,4 +114,6 @@ Each family can be switched off in **Blocks & features**; KaTeX and Mermaid are 
 - **MSIX** must be signed to install outside the Store, with a certificate whose subject equals the book's Publisher ID (`CN=…`). The Store signs Store submissions itself.
 - **MSI** versions use the first three numbers (`1.2.3`); keep the package ID the same across editions so upgrades replace older installs.
 - Unsigned apps trigger SmartScreen warnings until signed with a trusted certificate.
+- Readers keep their reading position and bookmarks in `%LOCALAPPDATA%\<package ID>`. The setup .exe's uninstaller offers to delete them (off by default, so silent uninstalls and upgrades keep them); the MSI leaves them in place.
+- The reader draws its own title bar that follows the book's theme; choose **Appearance → Reader → Title bar → Windows** for the standard one.
 - Raw HTML in Markdown is shown as text unless turned on; widgets and runnable code run in sandboxed frames without access to the reader's files.

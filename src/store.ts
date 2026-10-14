@@ -10,6 +10,7 @@ export const store = reactive({
   config: null as BookConfig | null,
   chapters: [] as ChapterInfo[],
   chapterClass: "bc-chapter",
+  format: "json" as "json" | "toml",
   problems: [] as string[],
   assets: [] as AssetInfo[],
   section: "write" as Section,
@@ -36,6 +37,7 @@ export function applyProject(p: ProjectData) {
   store.chapters = p.chapters;
   store.chapterClass = p.chapterClass;
   store.problems = p.problems;
+  store.format = p.format;
   if (!store.chapters.some((c) => c.file === store.currentChapter)) {
     store.currentChapter = store.chapters[0]?.file ?? "";
   }
@@ -48,6 +50,17 @@ export async function loadAssets() {
   } catch (e) {
     notify(errorText(e), "error");
   }
+}
+
+// Editors register here so pending text is written before the window closes.
+const flushers = new Set<() => Promise<void> | void>();
+export function onFlush(fn: () => Promise<void> | void) {
+  flushers.add(fn);
+  return () => flushers.delete(fn);
+}
+export async function flushAll() {
+  await Promise.all([...flushers].map((f) => f()));
+  if (store.config) await saveConfigNow();
 }
 
 let saveTimer = 0;

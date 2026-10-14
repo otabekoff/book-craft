@@ -201,7 +201,21 @@ pub fn build(project: &Project, req: &BuildRequest, log: &mut Log) -> Result<Bui
     let exe_path = work.join("stage").join(&exe_name);
     exe::customize(&req.reader_template, &exe_path, config, &icons)?;
     info(log, format!("Created {exe_name} with the book's icon and details"));
+    if config.build.signing.enabled {
+        let cert = std::path::Path::new(config.build.signing.certificate.trim());
+        let cert_info = crate::signing::inspect(cert, req.certificate_password.as_deref())
+            .context("Checking the signing certificate")?;
+        let problems = crate::signing::check_for_build(&cert_info, &config.meta.publisher_id, req.targets.contains(&Target::Msix));
+        if !problems.is_empty() {
+            bail!("The signing certificate can't be used:\n• {}", problems.join("\n• "));
+        }
+        info(log, format!("Signing as {} (valid until {})", cert_info.subject, cert_info.not_after));
+        if cert_info.self_signed {
+            warn(log, "This is a self-signed test certificate: fine for testing, but readers' PCs won't trust it.");
+        }
+    }
     let signer = Signer {
+
         signtool: req.tools.signtool(),
         config,
         password: req.certificate_password.as_deref(),

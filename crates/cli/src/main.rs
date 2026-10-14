@@ -5,6 +5,8 @@
 //! bookcraft build <folder> [--targets portable,nsis,msi,msix] [--reader <exe>] [--vendor <dir>] [--password <pfx password>] [--keep]
 //! bookcraft render <file.md>          print chapter HTML
 //! bookcraft tools                     show which packaging tools were found
+//! bookcraft cert new "CN=Name" <folder> --password <pw>   make a self-signed test certificate
+//! bookcraft cert show <file.pfx> [--password <pw>]
 //! ```
 
 use std::path::PathBuf;
@@ -29,6 +31,7 @@ fn main() -> ExitCode {
         Some("new") => cmd_new(&args),
         Some("build") => cmd_build(&args),
         Some("render") => cmd_render(&args),
+        Some("cert") => cmd_cert(&args),
         Some("tools") => {
             for t in ToolPaths::default().status() {
                 println!("{:<24} {:<34} {}", t.name, t.needed_for, t.path.unwrap_or_else(|| format!("missing — {}", t.help)));
@@ -122,6 +125,26 @@ fn cmd_build(args: &[String]) -> anyhow::Result<()> {
     }
     if failed {
         anyhow::bail!("some packages failed");
+    }
+    Ok(())
+}
+
+fn cmd_cert(args: &[String]) -> anyhow::Result<()> {
+    let password = flag(args, "--password").or_else(|| std::env::var("BOOKCRAFT_CERT_PASSWORD").ok());
+    match args.get(1).map(String::as_str) {
+        Some("new") => {
+            let subject = args.get(2).ok_or_else(|| anyhow::anyhow!("missing subject, e.g. \"CN=My Press\""))?;
+            let dir = args.get(3).ok_or_else(|| anyhow::anyhow!("missing output folder"))?;
+            let pw = password.ok_or_else(|| anyhow::anyhow!("pass --password or set BOOKCRAFT_CERT_PASSWORD"))?;
+            let c = book_core::signing::create_test_certificate(subject, &pw, std::path::Path::new(dir))?;
+            println!("Created {}\n        {}\nSubject {}, valid until {}", c.pfx, c.cer, c.info.subject, c.info.not_after);
+        }
+        Some("show") => {
+            let file = args.get(2).ok_or_else(|| anyhow::anyhow!("missing .pfx path"))?;
+            let i = book_core::signing::inspect(std::path::Path::new(file), password.as_deref())?;
+            println!("{}", serde_json::to_string_pretty(&i)?);
+        }
+        _ => anyhow::bail!("usage: bookcraft cert new \"CN=Name\" <folder> --password <pw> | cert show <file.pfx>"),
     }
     Ok(())
 }

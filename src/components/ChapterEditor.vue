@@ -10,8 +10,23 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { api, ASSET_BASE, errorText, type Heading } from "../api";
 import { BLOCKS, type BlockItem } from "../blocks";
 import { previewDocument } from "../previewDoc";
-import { loadAssets, notify, store } from "../store";
-import Icon from "./Icon.vue";
+import { loadAssets, notify, onFlush, store } from "../store";
+import {
+  Bold, Code, Columns2, Eye, Heading1, Heading2, Heading3, Highlighter, Image as ImageIcon, ImageUp, Italic, Link,
+  List, ListOrdered, ListTree, Moon, PenLine, Plus, Quote, Search, Strikethrough, Sun, Coffee, Table, TriangleAlert, X,
+} from "@lucide/vue";
+import { UiButton, UiIconButton, UiInput, UiSegmented } from "../ui";
+
+const layoutOptions = [
+  { value: "editor" as const, icon: PenLine, title: "Editor only" },
+  { value: "split" as const, icon: Columns2, title: "Editor and preview" },
+  { value: "preview" as const, icon: Eye, title: "Preview only" },
+];
+const themeOptions = [
+  { value: "light", icon: Sun, title: "Light" },
+  { value: "sepia", icon: Coffee, title: "Sepia" },
+  { value: "dark", icon: Moon, title: "Dark" },
+];
 
 const editorEl = ref<HTMLElement>();
 const frame = ref<HTMLIFrameElement>();
@@ -325,6 +340,8 @@ watch(() => store.configVersion, () => {
   renderNow();
 });
 
+const stopFlush = onFlush(saveNow);
+
 onMounted(async () => {
   view.value = new EditorView({ parent: editorEl.value!, state: makeState("") });
   window.addEventListener("message", onMessage);
@@ -334,6 +351,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  stopFlush();
   saveNow();
   window.removeEventListener("message", onMessage);
   view.value?.destroy();
@@ -349,45 +367,35 @@ const statusText = computed(
     <h1 class="ch-title">{{ chapterTitle || "No chapter" }}</h1>
     <span class="status" :class="status">{{ statusText }} · {{ words.toLocaleString() }} words</span>
     <span class="spacer"></span>
-    <div class="seg" role="group" aria-label="Layout">
-      <button type="button" :aria-pressed="layout === 'editor'" @click="setLayout('editor')" title="Editor only"><Icon name="write" /></button>
-      <button type="button" :aria-pressed="layout === 'split'" @click="setLayout('split')" title="Editor and preview"><Icon name="split" /></button>
-      <button type="button" :aria-pressed="layout === 'preview'" @click="setLayout('preview')" title="Preview only"><Icon name="eye" /></button>
-    </div>
+    <UiSegmented :model-value="layout" :options="layoutOptions" aria-label="Layout" size="sm" @update:model-value="setLayout($event as any)" />
   </header>
 
   <div class="toolbar" role="toolbar" aria-label="Formatting">
-    <button class="icon-btn" type="button" title="Heading 1" @click="heading(1)"><b>H1</b></button>
-    <button class="icon-btn" type="button" title="Heading 2" @click="heading(2)"><b>H2</b></button>
-    <button class="icon-btn" type="button" title="Heading 3" @click="heading(3)"><b>H3</b></button>
+    <UiIconButton :icon="Heading1" label="Heading 1" size="sm" @click="heading(1)" />
+    <UiIconButton :icon="Heading2" label="Heading 2" size="sm" @click="heading(2)" />
+    <UiIconButton :icon="Heading3" label="Heading 3" size="sm" @click="heading(3)" />
     <span class="sep"></span>
-    <button class="icon-btn" type="button" title="Bold (Ctrl+B)" @click="wrap('**')"><Icon name="bold" /></button>
-    <button class="icon-btn" type="button" title="Italic (Ctrl+I)" @click="wrap('*')"><Icon name="italic" /></button>
-    <button class="icon-btn" type="button" title="Strikethrough" @click="wrap('~~')"><Icon name="strike" /></button>
-    <button class="icon-btn" type="button" title="Highlight" @click="wrap('==')"><Icon name="mark" /></button>
-    <button class="icon-btn" type="button" title="Inline code (Ctrl+E)" @click="wrap('`')"><Icon name="code" /></button>
-    <button class="icon-btn" type="button" title="Link (Ctrl+K)" @click="link"><Icon name="link" /></button>
+    <UiIconButton :icon="Bold" label="Bold (Ctrl+B)" size="sm" @click="wrap('**')" />
+    <UiIconButton :icon="Italic" label="Italic (Ctrl+I)" size="sm" @click="wrap('*')" />
+    <UiIconButton :icon="Strikethrough" label="Strikethrough" size="sm" @click="wrap('~~')" />
+    <UiIconButton :icon="Highlighter" label="Highlight" size="sm" @click="wrap('==')" />
+    <UiIconButton :icon="Code" label="Inline code (Ctrl+E)" size="sm" @click="wrap('`')" />
+    <UiIconButton :icon="Link" label="Link (Ctrl+K)" size="sm" @click="link" />
     <span class="sep"></span>
-    <button class="icon-btn" type="button" title="Quote" @click="prefixLines('> ')"><Icon name="quote" /></button>
-    <button class="icon-btn" type="button" title="Bullet list" @click="prefixLines('- ')"><Icon name="list" /></button>
-    <button class="icon-btn" type="button" title="Numbered list" @click="prefixLines((i) => `${i + 1}. `)"><Icon name="olist" /></button>
-    <button class="icon-btn" type="button" title="Image" @click="imagePicker = !imagePicker; insertOpen = false"><Icon name="image" /></button>
-    <button class="icon-btn" type="button" title="Table" @click="insertBlock(BLOCKS[0].items[5])"><Icon name="table" /></button>
+    <UiIconButton :icon="Quote" label="Quote" size="sm" @click="prefixLines('> ')" />
+    <UiIconButton :icon="List" label="Bullet list" size="sm" @click="prefixLines('- ')" />
+    <UiIconButton :icon="ListOrdered" label="Numbered list" size="sm" @click="prefixLines((i) => `${i + 1}. `)" />
+    <UiIconButton :icon="ImageIcon" label="Image" size="sm" :pressed="imagePicker" @click="imagePicker = !imagePicker; insertOpen = false" />
+    <UiIconButton :icon="Table" label="Table" size="sm" @click="insertBlock(BLOCKS[0].items[5])" />
     <span class="sep"></span>
-    <button class="btn small primary" type="button" @click="insertOpen = !insertOpen; imagePicker = false" :aria-expanded="insertOpen" title="Insert a block (Ctrl+Shift+I)">
-      <Icon name="plus" />Insert
-    </button>
-    <button class="btn small ghost" type="button" @click="outlineOpen = !outlineOpen" :disabled="!headings.length">Outline</button>
+    <UiButton variant="primary" size="sm" :icon="Plus" title="Insert a block (Ctrl+Shift+I)" :aria-expanded="insertOpen" @click="insertOpen = !insertOpen; imagePicker = false">Insert</UiButton>
+    <UiButton variant="ghost" size="sm" :icon="ListTree" :disabled="!headings.length" @click="outlineOpen = !outlineOpen">Outline</UiButton>
     <span class="spacer"></span>
-    <div class="seg" role="group" aria-label="Preview theme" v-if="layout !== 'editor'">
-      <button type="button" :aria-pressed="previewTheme === 'light'" @click="setPreviewTheme('light')" title="Light"><Icon name="sun" /></button>
-      <button type="button" :aria-pressed="previewTheme === 'sepia'" @click="setPreviewTheme('sepia')" title="Sepia"><Icon name="sepia" /></button>
-      <button type="button" :aria-pressed="previewTheme === 'dark'" @click="setPreviewTheme('dark')" title="Dark"><Icon name="moon" /></button>
-    </div>
+    <UiSegmented v-if="layout !== 'editor'" :model-value="previewTheme" :options="themeOptions" aria-label="Preview theme" size="sm" @update:model-value="setPreviewTheme($event as string)" />
   </div>
 
   <div v-if="warnings.length" class="warnings notice warn">
-    <Icon name="warn" />
+    <TriangleAlert class="w-ico" aria-hidden="true" />
     <span>{{ warnings.join(" · ") }}</span>
   </div>
 
@@ -399,9 +407,8 @@ const statusText = computed(
 
     <div v-if="insertOpen" class="insert-panel" @keydown.esc="insertOpen = false">
       <div class="insert-head">
-        <Icon name="search" />
-        <input class="input" v-model="insertFilter" placeholder="Find a block — quote, chart, quiz…" autofocus />
-        <button class="icon-btn" type="button" aria-label="Close" @click="insertOpen = false"><Icon name="close" /></button>
+        <UiInput v-model="insertFilter" :icon="Search" placeholder="Find a block — quote, chart, quiz…" autofocus aria-label="Find a block" />
+        <UiIconButton :icon="X" label="Close" @click="insertOpen = false" />
       </div>
       <div class="insert-groups">
         <section v-for="g in filteredGroups" :key="g.name">
@@ -423,8 +430,8 @@ const statusText = computed(
       <div class="insert-head">
         <b>Insert an image</b>
         <span class="spacer"></span>
-        <button class="btn small" type="button" @click="importImage">Import from computer…</button>
-        <button class="icon-btn" type="button" aria-label="Close" @click="imagePicker = false"><Icon name="close" /></button>
+        <UiButton size="sm" :icon="ImageUp" @click="importImage">Import from computer…</UiButton>
+        <UiIconButton :icon="X" label="Close" @click="imagePicker = false" />
       </div>
       <div v-if="!images.length" class="empty">No images yet. Import one to add it to the book’s assets.</div>
       <div class="thumbs">
@@ -447,9 +454,8 @@ const statusText = computed(
 .ch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
 .status.dirty, .status.saving { color: var(--muted); }
 .status.error { color: var(--danger); }
-.seg button { display: inline-grid; place-items: center; padding: 0 8px; }
+.w-ico { width: 16px; height: 16px; flex: none; }
 .toolbar { display: flex; align-items: center; gap: 2px; padding: 4px 10px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; flex: none; }
-.toolbar .icon-btn { width: 32px; height: 32px; font-size: 12px; }
 .toolbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; }
 .toolbar .spacer { flex: 1; }
 .toolbar .btn { margin-left: 4px; }
@@ -464,7 +470,7 @@ const statusText = computed(
 .preview { width: 100%; height: 100%; border: 0; display: block; }
 .insert-panel { position: absolute; top: 8px; left: 12px; right: 12px; max-height: calc(100% - 16px); z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 50px rgb(0 0 0 / 0.2); display: flex; flex-direction: column; overflow: hidden; }
 .insert-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-.insert-head .input { flex: 1; }
+.insert-head :deep(.ui-input) { flex: 1; }
 .insert-head .spacer { flex: 1; }
 .insert-groups { overflow-y: auto; padding: 12px; columns: 4 210px; column-gap: 16px; }
 .insert-groups section { break-inside: avoid; margin-bottom: 14px; }
