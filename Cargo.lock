@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "book-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "comrak",
@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "book-craft"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "book-core",
@@ -341,7 +341,7 @@ dependencies = [
 
 [[package]]
 name = "book-reader"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pak-format",
  "serde_json",
@@ -353,7 +353,7 @@ dependencies = [
 
 [[package]]
 name = "bookcraft"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "book-core",
@@ -2631,7 +2631,7 @@ dependencies = [
 
 [[package]]
 name = "pak-format"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "pango"

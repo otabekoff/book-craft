@@ -1,7 +1,7 @@
 {
   "name": "book-craft",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Write a book in Markdown, get a Windows app (portable .exe, setup .exe, .msi, .msix).",
   "author": "Otabek Sadiridinov",
   "license": "MIT",
