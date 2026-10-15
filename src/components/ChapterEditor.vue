@@ -12,10 +12,10 @@ import { BLOCKS, type BlockItem } from "../blocks";
 import { previewDocument } from "../previewDoc";
 import { loadAssets, notify, onFlush, store } from "../store";
 import {
-  Bold, Code, Columns2, Eye, Heading1, Heading2, Heading3, Highlighter, Image as ImageIcon, ImageUp, Italic, Link,
+  Bold, ChevronDown, Code, Columns2, Eye, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Pilcrow, Highlighter, Image as ImageIcon, ImageUp, Italic, Link,
   List, ListOrdered, ListTree, Moon, PenLine, Plus, Quote, Search, Strikethrough, Sun, SunMoon, Coffee, Table, TriangleAlert, X,
 } from "@lucide/vue";
-import { UiButton, UiIconButton, UiInput, UiSegmented } from "../ui";
+import { UiButton, UiIconButton, UiInput, UiMenu, UiSegmented, type MenuItem } from "../ui";
 import { appTheme } from "../appTheme";
 
 const layoutOptions = [
@@ -44,13 +44,23 @@ const previewTheme = ref(localStorage.getItem("bc.previewTheme") || "auto");
 const effectiveTheme = computed(() => (previewTheme.value === "auto" ? appTheme.value : previewTheme.value));
 const insertOpen = ref(false);
 const insertFilter = ref("");
-const outlineOpen = ref(false);
 const imagePicker = ref(false);
 const frameReady = ref(false);
 const lastHtml = ref({ html: "", cls: "" });
 
 let saveTimer = 0;
 let renderTimer = 0;
+
+const outlineItems = computed<MenuItem[]>(() =>
+  headings.value.map((h) => ({ label: h.text, indent: h.level - 1, action: () => jumpTo(h) })),
+);
+const moreHeadings: MenuItem[] = [
+  { label: "Heading 4", icon: Heading4, action: () => heading(4) },
+  { label: "Heading 5", icon: Heading5, action: () => heading(5) },
+  { label: "Heading 6", icon: Heading6, action: () => heading(6) },
+  { separator: true },
+  { label: "Paragraph", icon: Pilcrow, action: () => heading(0) },
+];
 
 const chapterTitle = computed(() => store.chapters.find((c) => c.file === store.currentChapter)?.title ?? "");
 const disabledModules = computed(() => {
@@ -178,9 +188,9 @@ function wrap(mark: string, end = mark) {
 
 function prefixLines(prefix: string | ((i: number) => string)) {
   const v = view.value!;
-  const { from, to } = v.state.selection.main;
-  const first = v.state.doc.lineAt(from).number;
-  const last = v.state.doc.lineAt(to).number;
+  const sel = v.state.selection.main;
+  const first = v.state.doc.lineAt(sel.from).number;
+  const last = v.state.doc.lineAt(sel.to).number;
   const changes = [];
   for (let n = first, i = 0; n <= last; n++, i++) {
     const line = v.state.doc.line(n);
@@ -188,17 +198,30 @@ function prefixLines(prefix: string | ((i: number) => string)) {
     if (typeof prefix === "string" && line.text.startsWith(p)) changes.push({ from: line.from, to: line.from + p.length, insert: "" });
     else changes.push({ from: line.from, insert: p });
   }
-  v.dispatch({ changes });
+  const cs = v.state.changes(changes);
+  // Map with assoc 1 so a cursor at the line start lands after the inserted marker.
+  const selection = sel.empty ? { anchor: cs.mapPos(sel.head, 1) } : { anchor: cs.mapPos(sel.anchor, 1), head: cs.mapPos(sel.head, 1) };
+  v.dispatch({ changes: cs, selection, scrollIntoView: true });
   v.focus();
 }
 
+/** Toggle a heading level on the current line; level 0 turns it back into a paragraph. */
 function heading(level: number) {
   const v = view.value!;
-  const line = v.state.doc.lineAt(v.state.selection.main.from);
-  const stripped = line.text.replace(/^#{1,6}\s+/, "");
-  const current = (line.text.match(/^(#{1,6})\s/) || [])[1]?.length;
-  const insert = current === level ? stripped : "#".repeat(level) + " " + stripped;
-  v.dispatch({ changes: { from: line.from, to: line.to, insert } });
+  const head = v.state.selection.main.head;
+  const line = v.state.doc.lineAt(head);
+  const marker = line.text.match(/^#{1,6}\s+/)?.[0] ?? "";
+  const current = marker ? marker.trim().length : 0;
+  const next = level === 0 || current === level ? "" : "#".repeat(level) + " ";
+  // Keep the cursor at the same spot in the text, or at the end when it sat inside the old marker.
+  const offset = Math.max(0, head - line.from - marker.length);
+  const atStart = head - line.from <= marker.length;
+  const textLen = line.length - marker.length;
+  v.dispatch({
+    changes: { from: line.from, to: line.from + marker.length, insert: next },
+    selection: { anchor: line.from + next.length + (atStart ? textLen : offset) },
+    scrollIntoView: true,
+  });
   v.focus();
 }
 
@@ -269,7 +292,6 @@ async function importImage() {
 }
 
 function jumpTo(h: Heading) {
-  outlineOpen.value = false;
   const v = view.value!;
   const doc = v.state.doc;
   for (let n = 1; n <= doc.lines; n++) {
@@ -380,6 +402,9 @@ const statusText = computed(
     <UiIconButton :icon="Heading1" label="Heading 1" size="sm" @click="heading(1)" />
     <UiIconButton :icon="Heading2" label="Heading 2" size="sm" @click="heading(2)" />
     <UiIconButton :icon="Heading3" label="Heading 3" size="sm" @click="heading(3)" />
+    <UiMenu :items="moreHeadings" align="start">
+      <UiIconButton :icon="ChevronDown" label="More headings" size="sm" aria-haspopup="menu" />
+    </UiMenu>
     <span class="sep"></span>
     <UiIconButton :icon="Bold" label="Bold (Ctrl+B)" size="sm" @click="wrap('**')" />
     <UiIconButton :icon="Italic" label="Italic (Ctrl+I)" size="sm" @click="wrap('*')" />
@@ -395,7 +420,9 @@ const statusText = computed(
     <UiIconButton :icon="Table" label="Table" size="sm" @click="insertBlock(BLOCKS[0].items[5])" />
     <span class="sep"></span>
     <UiButton variant="primary" size="sm" :icon="Plus" title="Insert a block (Ctrl+Shift+I)" :aria-expanded="insertOpen" @click="insertOpen = !insertOpen; imagePicker = false">Insert</UiButton>
-    <UiButton variant="ghost" size="sm" :icon="ListTree" :disabled="!headings.length" @click="outlineOpen = !outlineOpen">Outline</UiButton>
+    <UiMenu :items="outlineItems" align="start">
+      <UiButton variant="ghost" size="sm" :icon="ListTree" :disabled="!headings.length" aria-haspopup="menu">Outline</UiButton>
+    </UiMenu>
     <span class="spacer"></span>
     <UiSegmented v-if="layout !== 'editor'" :model-value="previewTheme" :options="themeOptions" aria-label="Preview theme" size="sm" @update:model-value="setPreviewTheme($event as string)" />
   </div>
@@ -448,11 +475,6 @@ const statusText = computed(
       </div>
     </div>
 
-    <div v-if="outlineOpen" class="insert-panel outline-panel">
-      <button v-for="h in headings" :key="h.id" type="button" class="outline-item" :style="{ paddingLeft: (h.level - 1) * 14 + 10 + 'px' }" @click="jumpTo(h)">
-        {{ h.text }}
-      </button>
-    </div>
   </div>
 </template>
 
@@ -492,7 +514,4 @@ const statusText = computed(
 .thumb:hover { border-color: var(--accent); }
 .thumb img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; border-radius: 4px; background: var(--panel); }
 .thumb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.outline-panel { left: auto; width: 320px; padding: 6px; overflow-y: auto; }
-.outline-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.outline-item:hover { background: var(--panel-2); }
 </style>
