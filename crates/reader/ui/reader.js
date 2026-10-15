@@ -14,6 +14,7 @@
     fullscreen: false,
     openAtEnd: false,
     lastWheel: 0,
+    stage: [null, null],
   };
   // Page mode: the chapter is laid out in CSS columns inside a fixed frame, one column per page.
   const pager = { page: 0, pages: 1, cols: 1, n: 1, pw: 0, gap: 0, step: 0, padX: 0, padTop: 0, h: 0, fw: 0, fh: 0, curl: null };
@@ -163,6 +164,7 @@
     save("prefs", prefs);
     applyDisplay();
     relayout(ratio);
+    if (key === "turn" || key === "layout") setTimeout(prepareNeighbours, 0);
     // Web fonts can arrive after the change; lay the pages out again once they have.
     if (document.fonts && isPaged()) document.fonts.ready.then(() => relayout(ratio));
   }
@@ -362,7 +364,17 @@
       article.innerHTML = await fetchChapter(i);
       article.setAttribute("lang", b.meta.language || "en");
       const drawn = window.BookBlocks ? window.BookBlocks.hydrate(article, { vendor: "/_runtime/vendor/", theme: effectiveTheme() }) : null;
-      Promise.resolve(drawn).then(() => state.chapter === i && paintHighlights());
+      Promise.resolve(drawn).then(() => {
+        if (state.chapter !== i) return;
+        paintHighlights();
+        // A page curled in from the neighbouring chapter stays on top until this chapter's math,
+        // diagrams and images are drawn and laid out, so the swap does not flash.
+        if (pager.curl && pager.curl.landed) {
+          if (isPaged()) (countPages(), goto(pager.page, false));
+          requestAnimationFrame(() => requestAnimationFrame(() => endCurl(true)));
+        }
+        prepareNeighbours();
+      });
       const pos = load("position", null);
       const atEnd = state.openAtEnd;
       state.openAtEnd = false;
@@ -456,7 +468,8 @@
     $("page-frame").removeAttribute("style");
     ["width", "height", "columns", "column-gap", "transform", "--page-h"].forEach((k) => article.style.removeProperty(k));
     article.classList.remove("turning");
-    endCurl();
+    endCurl(true);
+    clearStage();
     $("reader").classList.remove("spread-2");
     $("page-numbers").textContent = "";
   }
@@ -487,6 +500,7 @@
     article.style.setProperty("--page-h", contentH + "px");
     $("reader").classList.toggle("spread-2", n === 2);
     endCurl();
+    state.stage.forEach((st) => st && st.el && layoutLike(st.el, article));
     Object.assign(pager, { n, pw, gap, step: contentW + gap, padX: pad.x, padTop: pad.top, h: contentH, fw: contentW + pad.x * 2, fh: availH });
     countPages();
     goto(pager.page, false);
@@ -607,21 +621,74 @@
      "Sheet space" has its origin at the spine (the page's inner edge), x toward the outer edge (W),
      y down (H). A backward turn is the same fold played in reverse with the earlier spread. */
 
-  /** A full-height sheet of paper holding one page's text and number (or blank when col is null). */
-  function pageSheet(col, width, contentX) {
+  /* Neighbouring chapters, laid out exactly like the open one but hidden, so a page curling
+     across a chapter boundary shows the real next (or previous) pages. Only kept in page mode
+     with Flip. state.stage[0] is the previous chapter, state.stage[1] the next. */
+  function layoutLike(target, article) {
+    ["width", "height", "columns", "columnGap"].forEach((k) => (target.style[k] = article.style[k]));
+    target.style.setProperty("--page-h", article.style.getPropertyValue("--page-h"));
+  }
+  function clearStage() {
+    state.stage.forEach((st) => st && st.el && st.el.remove());
+    state.stage = [null, null];
+  }
+  function prepareNeighbours() {
+    if (!isPaged() || currentTurn() !== "flip" || state.chapter < 0) {
+      clearStage();
+      return;
+    }
+    const chapter = state.chapter;
+    [-1, 1].forEach((dir, slot) => {
+      const j = chapter + dir;
+      const have = state.stage[slot];
+      if (have && have.chapter === j) return;
+      if (have && have.el) have.el.remove();
+      state.stage[slot] = null;
+      if (j < 0 || j >= state.book.chapters.length) return;
+      // Reserve the slot first so overlapping calls never stage the same chapter twice.
+      const entry = { chapter: j, el: null };
+      state.stage[slot] = entry;
+      fetchChapter(j).then((html) => {
+        if (state.stage[slot] !== entry || state.chapter !== chapter || !isPaged()) return;
+        const b = state.book;
+        const staged = document.createElement("article");
+        staged.className = (b.chapterClass || "bc-chapter") + " bc-staged";
+        staged.setAttribute("aria-hidden", "true");
+        staged.setAttribute("lang", b.meta.language || "en");
+        staged.innerHTML = html;
+        layoutLike(staged, $("chapter"));
+        $("page-frame").appendChild(staged);
+        entry.el = staged;
+        if (window.BookBlocks) window.BookBlocks.hydrate(staged, { vendor: "/_runtime/vendor/", theme: effectiveTheme() });
+      });
+    });
+  }
+  function sourceOf(el) {
+    return { el, cols: Math.max(1, Math.round((el.scrollWidth + pager.gap) / (pager.pw + pager.gap))) };
+  }
+  /** A page to copy: column `col` of `src` (the open chapter unless given). */
+  function page(col, src) {
+    return col == null ? null : { col, src: src || { el: $("chapter"), cols: pager.cols } };
+  }
+
+  /** A full-height sheet of paper holding one page's text and number (or blank). */
+  function pageSheet(ref, width, contentX) {
     const sheet = document.createElement("div");
     sheet.className = "curl-sheet";
     sheet.style.width = width + "px";
     sheet.style.height = pager.fh + "px";
-    if (col == null || col < 0 || col >= pager.cols) return sheet;
+    if (ref != null && typeof ref === "number") ref = page(ref);
+    if (!ref || !ref.src || ref.col < 0 || ref.col >= ref.src.cols) return sheet;
+    const col = ref.col;
     const box = document.createElement("div");
     box.className = "curl-content";
     box.style.cssText = "left:" + contentX + "px;top:" + pager.padTop + "px;width:" + pager.pw + "px;height:" + pager.h + "px";
-    const a = $("chapter");
+    const a = ref.src.el;
     const copy = a.cloneNode(true);
     copy.removeAttribute("id");
     copy.removeAttribute("tabindex");
-    copy.classList.remove("turning");
+    copy.removeAttribute("aria-hidden");
+    copy.classList.remove("turning", "bc-staged");
     copy.style.transform = "translateX(" + -col * (pager.pw + pager.gap) + "px)";
     const src = a.querySelectorAll("canvas"); // canvases lose their drawing when copied
     copy.querySelectorAll("canvas").forEach((d, i) => {
@@ -656,26 +723,31 @@
     if (cross && (dir > 0 ? last : state.chapter === 0)) return null;
     const n = pager.n;
     const target = cross ? null : s + dir;
-    const col = (spread, i) => (spread == null ? null : spread * n + i);
+    // Pages of the spread being turned to: the same chapter, or the staged neighbour.
+    const staged = cross ? state.stage[dir > 0 ? 1 : 0] : null;
+    const other = staged && staged.el ? sourceOf(staged.el) : null;
+    const toSpread = cross ? (dir > 0 ? 0 : other ? Math.ceil(other.cols / n) - 1 : null) : target;
+    const here = (i) => page(s * n + i);
+    const there = (i) => (toSpread == null || (cross && !other) ? null : page(toSpread * n + i, cross ? other : null));
     let spineX, contentX, front, back, under, base = null;
     if (n === 2) {
       spineX = pager.padX + pager.pw + pager.gap / 2;
       contentX = pager.gap / 2;
       if (dir > 0) {
-        front = col(s, 1);
-        back = col(target, 0);
-        under = col(target, 1);
+        front = here(1);
+        back = there(0);
+        under = there(1);
       } else {
-        front = col(target, 1);
-        back = col(s, 0);
-        under = col(s, 1);
-        base = col(target, 0);
+        front = there(1);
+        back = here(0);
+        under = here(1);
+        base = there(0);
       }
     } else {
       spineX = 0;
       contentX = pager.padX;
-      front = dir > 0 ? col(s, 0) : col(target, 0);
-      under = dir > 0 ? col(target, 0) : col(s, 0);
+      front = dir > 0 ? here(0) : there(0);
+      under = dir > 0 ? there(0) : here(0);
       back = null; // the back of a single page is blank paper
     }
     const W = pager.fw - spineX;
@@ -707,7 +779,9 @@
     const backShade = strip("curl-gloss", 60);
     backEl.appendChild(backShade);
     flap.appendChild(backEl);
-    space.append(underEl, frontEl, flap);
+    space.append(underEl, frontEl);
+    if (n === 2) space.appendChild(el("div", { class: "curl-spine", "aria-hidden": "true" }));
+    space.appendChild(flap);
     layer.appendChild(space);
     $("scroller").appendChild(layer);
     const curl = { dir, cross, target, W, H, cy: top ? 0 : H, x: 0, y: 0, layer, frontEl, backEl, underShadow, frontShade, backShade, anim: 0 };
@@ -823,20 +897,21 @@
   }
   /** The page has landed: show the new spread under the copies, then remove them. */
   function landCurl(c) {
-    if (pager.curl !== c) return;
+    if (pager.curl !== c || c.landed) return;
     if (c.cross) {
+      c.landed = true; // kept until the new chapter is drawn (see openChapter)
       if (c.dir < 0) state.openAtEnd = true;
       location.hash = "#read/" + (state.chapter + c.dir);
-      setTimeout(() => pager.curl === c && endCurl(), 1500); // the new chapter normally replaces it first
+      setTimeout(() => pager.curl === c && endCurl(true), 3000);
       return;
     }
     pager.curl = null; // keep goto from removing it twice
     goto(c.target, false);
     c.layer.remove();
   }
-  function endCurl() {
+  function endCurl(force) {
     const c = pager.curl;
-    if (!c) return;
+    if (!c || (c.landed && !force)) return;
     pager.curl = null;
     cancelAnimationFrame(c.anim);
     c.layer.remove();
@@ -847,6 +922,7 @@
     if (busy) {
       // Finish the turn in progress at once, then start the next.
       cancelAnimationFrame(busy.anim);
+      if (busy.landed) return; // still swapping in the next chapter
       if (busy.settling) endCurl();
       else landCurl(busy);
       if (busy.cross) return;

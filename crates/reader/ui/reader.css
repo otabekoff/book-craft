@@ -636,3 +636,10 @@ html[data-theme="dark"] .curl-cast { background: linear-gradient(to right, rgb(0
   12%, 80% { opacity: 1; transform: translate(-50%, 0); }
   100% { opacity: 0; transform: translate(-50%, 0); }
 }
+
+/* Neighbouring chapters laid out like the open one, for page curls across chapters. Never seen. */
+.bc-staged { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; }
+/* The spine stays visible while a page turns, as on the spread itself. */
+.curl-spine { position: absolute; top: 44px; bottom: 52px; left: 0; border-left: 1px solid var(--bc-border); pointer-events: none; }
+.reader.paper .curl-spine { top: 0; bottom: 0; width: 56px; margin-left: -28px; border: 0; background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.06) 50%, transparent); }
+html[data-theme="dark"] .reader.paper .curl-spine { background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.3) 50%, transparent); }
