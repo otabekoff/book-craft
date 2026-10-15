@@ -37,6 +37,11 @@ const spreadOptions = [
   { value: "one", label: "One" },
   { value: "two", label: "Two" },
 ];
+const turnOptions = [
+  { value: "slide", label: "Slide" },
+  { value: "flip", label: "Flip" },
+  { value: "none", label: "Instant" },
+];
 const widthOptions = [
   { value: "narrow", label: "Narrow" },
   { value: "normal", label: "Normal" },
@@ -122,6 +127,9 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
           </UiField>
           <UiField label="Line spacing">
             <UiRange v-model="t.lineHeight" :min="1.3" :max="2.1" :step="0.05" aria-label="Line spacing" :format="(v) => v.toFixed(2)" />
+          </UiField>
+          <UiField label="Page turn" hint="Flip turns pages like a real book.">
+            <UiSegmented v-model="r.pageTurn" :options="turnOptions" aria-label="Page turn" />
           </UiField>
           <UiField label="Text width">
             <UiRange v-model="t.maxWidth" :min="520" :max="1000" :step="10" aria-label="Text width" :format="(v) => v + ' px'" />

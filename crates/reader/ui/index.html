@@ -88,24 +88,18 @@
         <button class="icon-btn" id="btn-fullscreen" type="button" aria-label="Full screen" title="Full screen (F11)" aria-pressed="false">
           <span data-icon="maximize"></span>
         </button>
-        <button class="icon-btn" id="btn-display" type="button" aria-label="Text and theme" title="Text and theme" aria-expanded="false">
+        <button class="icon-btn" id="btn-text" type="button" aria-label="Text" title="Text: size, typeface and spacing" aria-expanded="false" aria-controls="text-panel">
           <span data-icon="a-large-small"></span>
+        </button>
+        <button class="icon-btn" id="btn-page" type="button" aria-label="Page" title="Page: theme, width and layout" aria-expanded="false" aria-controls="page-panel">
+          <span data-icon="book-open"></span>
         </button>
         <a class="icon-btn" href="#about" aria-label="About this book and settings" title="About and settings">
           <span data-icon="info"></span>
         </a>
       </header>
 
-      <div id="display-panel" class="popover" hidden>
-        <div class="pop-row" id="row-theme">
-          <span class="pop-label">Theme</span>
-          <div class="seg" role="group" aria-label="Theme" id="theme-buttons">
-            <button type="button" data-theme-choice="light" class="swatch swatch-light" aria-label="Light"></button>
-            <button type="button" data-theme-choice="sepia" class="swatch swatch-sepia" aria-label="Sepia"></button>
-            <button type="button" data-theme-choice="dark" class="swatch swatch-dark" aria-label="Dark"></button>
-            <button type="button" data-theme-choice="system" class="swatch swatch-system" aria-label="Match Windows"></button>
-          </div>
-        </div>
+      <div id="text-panel" class="popover" role="dialog" aria-label="Text" hidden>
         <div class="pop-row" id="row-size">
           <span class="pop-label">Text size</span>
           <div class="seg">
@@ -126,11 +120,23 @@
             <button type="button" data-leading="relaxed">Relaxed</button>
           </div>
         </div>
+      </div>
+
+      <div id="page-panel" class="popover" role="dialog" aria-label="Page" hidden>
+        <div class="pop-row" id="row-theme">
+          <span class="pop-label">Theme</span>
+          <div class="seg" role="group" aria-label="Theme" id="theme-buttons">
+            <button type="button" data-theme-choice="light" class="swatch swatch-light" aria-label="Light"></button>
+            <button type="button" data-theme-choice="sepia" class="swatch swatch-sepia" aria-label="Sepia"></button>
+            <button type="button" data-theme-choice="dark" class="swatch swatch-dark" aria-label="Dark"></button>
+            <button type="button" data-theme-choice="system" class="swatch swatch-system" aria-label="Match Windows"></button>
+          </div>
+        </div>
         <div class="pop-row">
           <span class="pop-label">Width</span>
-          <div class="seg seg-text" role="group" aria-label="Page width" id="width-buttons">
+          <div class="seg seg-text" role="group" aria-label="Text width" id="width-buttons">
             <button type="button" data-width="narrow">Narrow</button>
-            <button type="button" data-width="">Normal</button>
+            <button type="button" data-width="normal">Normal</button>
             <button type="button" data-width="wide">Wide</button>
             <button type="button" data-width="full">Full</button>
           </div>
@@ -148,6 +154,14 @@
             <button type="button" data-spread="auto">Auto</button>
             <button type="button" data-spread="one">One</button>
             <button type="button" data-spread="two">Two</button>
+          </div>
+        </div>
+        <div class="pop-row" id="row-turn">
+          <span class="pop-label">Page turn</span>
+          <div class="seg seg-text" role="group" aria-label="Page turn" id="turn-buttons">
+            <button type="button" data-turn="slide">Slide</button>
+            <button type="button" data-turn="flip">Flip</button>
+            <button type="button" data-turn="none">Instant</button>
           </div>
         </div>
         <div class="pop-row">

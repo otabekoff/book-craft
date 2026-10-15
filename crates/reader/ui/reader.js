@@ -16,7 +16,7 @@
     lastWheel: 0,
   };
   // Page mode: the chapter is laid out in CSS columns inside a fixed frame, one column per page.
-  const pager = { page: 0, pages: 1, cols: 1, n: 1, pw: 0, gap: 0, step: 0 };
+  const pager = { page: 0, pages: 1, cols: 1, n: 1, pw: 0, gap: 0, step: 0, padX: 0, padTop: 0, h: 0, flip: null };
   let prefs = {};
   let storeKey = "bookcraft";
 
@@ -87,6 +87,7 @@
     reader.classList.toggle("paper", currentPaper() === "on");
     reader.classList.toggle("width-full", width === "full");
     $("row-spread").hidden = !isPaged();
+    $("row-turn").hidden = !isPaged();
 
     document.querySelectorAll("[data-theme-choice]").forEach((b) =>
       b.setAttribute("aria-pressed", String((prefs.theme || state.book.reader.defaultTheme) === b.dataset.themeChoice))
@@ -96,6 +97,7 @@
     document.querySelectorAll("[data-layout]").forEach((b) => b.setAttribute("aria-pressed", String(currentLayout() === b.dataset.layout)));
     document.querySelectorAll("[data-spread]").forEach((b) => b.setAttribute("aria-pressed", String(currentSpread() === b.dataset.spread)));
     document.querySelectorAll("[data-paper]").forEach((b) => b.setAttribute("aria-pressed", String(currentPaper() === b.dataset.paper)));
+    document.querySelectorAll("[data-turn]").forEach((b) => b.setAttribute("aria-pressed", String(currentTurn() === b.dataset.turn)));
     $("size-value").textContent = currentSize() + " px";
     renderFontList();
     renderSettings();
@@ -135,6 +137,9 @@
   }
   function currentPaper() {
     return prefs.paper || (state.book.reader.paperLook ? "on" : "off");
+  }
+  function currentTurn() {
+    return prefs.turn || state.book.reader.pageTurn || "slide";
   }
   function isPaged() {
     return currentLayout() === "pages";
@@ -390,6 +395,7 @@
     $("page-frame").removeAttribute("style");
     ["width", "height", "columns", "column-gap", "transform", "--page-h"].forEach((k) => article.style.removeProperty(k));
     article.classList.remove("turning");
+    finishFlip();
     $("reader").classList.remove("spread-2");
     $("page-number").textContent = "";
   }
@@ -419,7 +425,7 @@
     article.style.columnGap = gap + "px";
     article.style.setProperty("--page-h", contentH + "px");
     $("reader").classList.toggle("spread-2", n === 2);
-    Object.assign(pager, { n, pw, gap, step: contentW + gap });
+    Object.assign(pager, { n, pw, gap, step: contentW + gap, padX: pad.x, padTop: pad.top, h: contentH });
     countPages();
     goto(pager.page, false);
   }
@@ -428,10 +434,15 @@
     pager.cols = Math.max(1, Math.round((article.scrollWidth + pager.gap) / (pager.pw + pager.gap)));
     pager.pages = Math.max(1, Math.ceil(pager.cols / pager.n));
   }
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   function goto(page, animate) {
     const article = $("chapter");
+    const from = pager.page;
     pager.page = Math.max(0, Math.min(pager.pages - 1, page || 0));
-    article.classList.toggle("turning", !!animate);
+    const style = animate && !reducedMotion.matches ? currentTurn() : "none";
+    finishFlip();
+    if (style === "flip" && Math.abs(pager.page - from) === 1) flip(from, pager.page);
+    article.classList.toggle("turning", style === "slide");
     article.style.transform = "translateX(" + -pager.page * pager.step + "px)";
     const first = pager.page * pager.n + 1;
     const last = Math.min(pager.cols, first + pager.n - 1);
@@ -481,6 +492,95 @@
       }
     });
   }
+  /* A real-book turn: the leaf rotates around the spine (two pages) or the page edge (one page),
+     drawn with copies of the pages. The chapter itself jumps at once and is uncovered as the leaf moves. */
+  function pageCopy(col, x) {
+    const box = document.createElement("div");
+    box.className = "flip-page";
+    box.style.cssText = "left:" + x + "px;top:" + pager.padTop + "px;width:" + pager.pw + "px;height:" + pager.h + "px";
+    if (col >= 0 && col < pager.cols) {
+      const a = $("chapter");
+      const c = a.cloneNode(true);
+      c.removeAttribute("id");
+      c.removeAttribute("tabindex");
+      c.classList.remove("turning");
+      c.style.transform = "translateX(" + -col * (pager.pw + pager.gap) + "px)";
+      // Canvases lose their drawing when copied.
+      const src = a.querySelectorAll("canvas");
+      c.querySelectorAll("canvas").forEach((d, i) => {
+        try {
+          d.getContext("2d").drawImage(src[i], 0, 0);
+        } catch (e) {
+          /* tainted or empty */
+        }
+      });
+      box.appendChild(c);
+    }
+    return box;
+  }
+  function sheet(cls, left, width, height) {
+    const d = document.createElement("div");
+    d.className = cls;
+    d.style.left = left + "px";
+    d.style.width = width + "px";
+    d.style.height = height + "px";
+    return d;
+  }
+  function flip(from, to) {
+    const frame = $("page-frame");
+    const { n, pw, gap, padX } = pager;
+    const fwd = to > from;
+    const height = pager.padTop + pager.h + 12;
+    const layer = document.createElement("div");
+    layer.className = "flip-layer";
+    layer.setAttribute("aria-hidden", "true");
+    layer.style.cssText = "left:" + frame.offsetLeft + "px;top:" + frame.offsetTop + "px;width:" + frame.offsetWidth + "px;height:" + height + "px";
+    let leaf;
+    let frames;
+    if (n === 2) {
+      const half = pw + gap / 2;
+      const spine = padX + half;
+      // The page that does not move stays covered by its old content until the leaf lands on it.
+      const still = sheet("flip-still", fwd ? 0 : spine, spine, height);
+      still.appendChild(pageCopy(fwd ? from * 2 : from * 2 + 1, fwd ? padX : gap / 2));
+      leaf = sheet(fwd ? "flip-leaf" : "flip-leaf rev", fwd ? spine : spine - half, half, height);
+      leaf.style.transformOrigin = fwd ? "left center" : "right center";
+      const front = sheet("flip-face", 0, half, height);
+      front.appendChild(pageCopy(fwd ? from * 2 + 1 : from * 2, fwd ? gap / 2 : 0));
+      const back = sheet("flip-face back", 0, half, height);
+      back.appendChild(pageCopy(fwd ? to * 2 : to * 2 + 1, fwd ? 0 : gap / 2));
+      leaf.append(front, back);
+      layer.append(still, leaf);
+      frames = [{ transform: "rotateY(0deg)" }, { transform: "rotateY(" + (fwd ? -180 : 180) + "deg)" }];
+    } else {
+      // One page: the old page swings away to the left, or the previous one swings back in over it.
+      const w = frame.offsetWidth;
+      leaf = sheet("flip-leaf single", 0, w, height);
+      leaf.style.transformOrigin = "left center";
+      leaf.appendChild(pageCopy(fwd ? from : to, padX));
+      if (!fwd) {
+        const still = sheet("flip-still", 0, w, height);
+        still.appendChild(pageCopy(from, padX));
+        layer.appendChild(still);
+      }
+      layer.appendChild(leaf);
+      frames = fwd ? [{ transform: "rotateY(0deg)" }, { transform: "rotateY(-100deg)" }] : [{ transform: "rotateY(-100deg)" }, { transform: "rotateY(0deg)" }];
+    }
+    $("scroller").appendChild(layer);
+    const anim = leaf.animate(frames, { duration: n === 2 ? 700 : 520, easing: fwd || n === 2 ? "cubic-bezier(0.45, 0.05, 0.3, 1)" : "cubic-bezier(0.2, 0.7, 0.3, 1)" });
+    pager.flip = { layer, anim };
+    anim.finished.then(
+      () => pager.flip && pager.flip.anim === anim && finishFlip(),
+      () => {}
+    );
+  }
+  function finishFlip() {
+    const f = pager.flip;
+    if (!f) return;
+    pager.flip = null;
+    f.anim.cancel();
+    f.layer.remove();
+  }
   function scrollsItself(node, dy) {
     for (let n = node; n && n.id !== "chapter"; n = n.parentElement) {
       if (n.nodeType !== 1) continue;
@@ -491,8 +591,22 @@
     }
     return false;
   }
+  const INTERACTIVE = "a, button, input, textarea, select, summary, label, details, video, audio, iframe, canvas, [role=button], [contenteditable], .bc-code, .bc-flashcard, .bc-quiz";
+  /** True over the page margins, the gutter or the desk: where a mouse can grab the page without selecting text. */
+  function onMargin(x, y) {
+    const r = $("page-frame").getBoundingClientRect();
+    const left = r.left + pager.padX;
+    const top = r.top + pager.padTop;
+    const inText = x >= left && x <= r.right - pager.padX && y >= top && y <= top + pager.h;
+    const inGutter = pager.n === 2 && x > left + pager.pw && x < left + pager.pw + pager.gap;
+    return !inText || inGutter;
+  }
   function wirePages() {
     const scroller = $("scroller");
+    const article = $("chapter");
+    // Wheel and touchpad: a mouse notch turns at once; a two-finger swipe turns once it has moved
+    // far enough, and its momentum is ignored until the fingers pause or swipe again.
+    const wheel = { acc: 0, last: 0, prev: 0, armed: true };
     scroller.addEventListener(
       "wheel",
       (e) => {
@@ -500,36 +614,92 @@
         const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
         if (scrollsItself(e.target, d)) return;
         e.preventDefault();
-        // One turn per wheel gesture: a burst of events counts once.
-        const now = Date.now();
-        const fresh = now - state.lastWheel > 320;
-        state.lastWheel = now;
-        if (fresh && Math.abs(d) >= 4) turn(d > 0 ? 1 : -1);
+        const now = performance.now();
+        const size = Math.abs(d);
+        if (now - wheel.last > 200) {
+          wheel.armed = true;
+          wheel.acc = 0;
+        } else if (!wheel.armed && size > wheel.prev * 1.8 && size > 6) {
+          wheel.armed = true; // a new swipe while the last one is still coasting
+          wheel.acc = 0;
+        }
+        wheel.last = now;
+        wheel.prev = size;
+        if (!wheel.armed) return;
+        wheel.acc += d;
+        const threshold = e.deltaMode === 1 ? 1 : 60;
+        if (Math.abs(wheel.acc) >= threshold) {
+          turn(wheel.acc > 0 ? 1 : -1);
+          wheel.armed = false;
+          wheel.acc = 0;
+        }
       },
       { passive: false }
     );
     // Click the outer part of a page (or the desk beside it) to turn.
     scroller.addEventListener("click", (e) => {
+      if (state.suppressClick) {
+        state.suppressClick = false;
+        return;
+      }
       if (!isPaged() || e.button !== 0) return;
-      if (e.target.closest("a, button, input, textarea, select, summary, label, details, video, audio, iframe, canvas, [role=button], [contenteditable], .bc-code, .bc-flashcard, .bc-quiz")) return;
+      if (e.target.closest(INTERACTIVE)) return;
       if (String(window.getSelection && window.getSelection()).length) return;
       const r = $("page-frame").getBoundingClientRect();
       const zone = Math.min(160, r.width * 0.2);
       if (e.clientX < r.left + zone) turn(-1);
       else if (e.clientX > r.right - zone) turn(1);
     });
-    // Swipe on touch screens.
-    let touch = null;
+    // Drag to turn: touch and pen anywhere, a mouse from the margins (so text can still be selected).
+    let drag = null;
     scroller.addEventListener("pointerdown", (e) => {
-      if (isPaged() && e.pointerType === "touch") touch = { x: e.clientX, y: e.clientY };
+      if (!isPaged() || e.button !== 0 || e.target.closest(INTERACTIVE)) return;
+      const mouse = e.pointerType === "mouse";
+      if (mouse && !onMargin(e.clientX, e.clientY)) return;
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), moved: false };
+      if (mouse) e.preventDefault();
     });
-    scroller.addEventListener("pointerup", (e) => {
-      if (!touch) return;
-      const dx = e.clientX - touch.x;
-      const dy = e.clientY - touch.y;
-      touch = null;
-      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) turn(dx < 0 ? 1 : -1);
+    scroller.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (!drag.moved) {
+        if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+        drag.moved = true;
+        try {
+          scroller.setPointerCapture(e.pointerId);
+        } catch (err) {
+          /* the pointer is already gone */
+        }
+        $("reader").classList.add("dragging");
+        finishFlip();
+      }
+      if (currentTurn() === "slide") {
+        // Follow the finger, with resistance where there is no page to go to.
+        const atStart = pager.page === 0 && state.chapter === 0;
+        const atEnd = pager.page === pager.pages - 1 && state.chapter === state.book.chapters.length - 1;
+        const pull = (dx > 0 && atStart) || (dx < 0 && atEnd) ? dx * 0.25 : dx;
+        article.classList.remove("turning");
+        article.style.transform = "translateX(" + (-pager.page * pager.step + pull) + "px)";
+      }
     });
+    const endDrag = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const d = drag;
+      drag = null;
+      if (!d.moved) return;
+      $("reader").classList.remove("dragging");
+      state.suppressClick = true;
+      setTimeout(() => (state.suppressClick = false), 0);
+      const dx = e.clientX - d.x;
+      const fast = Math.abs(dx) / Math.max(1, performance.now() - d.t) > 0.5;
+      const page = pager.page;
+      const chapter = state.chapter;
+      if (e.type === "pointerup" && (Math.abs(dx) > 70 || (fast && Math.abs(dx) > 20))) turn(dx < 0 ? 1 : -1);
+      if (pager.page === page && state.chapter === chapter) goto(page, currentTurn() === "slide"); // snap back
+    };
+    scroller.addEventListener("pointerup", endDrag);
+    scroller.addEventListener("pointercancel", endDrag);
     // Tabbing to a link on another page turns to it.
     $("chapter").addEventListener("focusin", (e) => {
       if (isPaged() && e.target.id !== "chapter") reveal(e.target);
@@ -543,14 +713,34 @@
 
   function setFocusMode(on) {
     state.focus = on;
-    const reader = $("reader");
-    reader.classList.toggle("focus", on);
+    $("reader").classList.toggle("focus", on);
     $("btn-focus").setAttribute("aria-pressed", String(on));
-    if (on) {
-      // Show the toolbar briefly so readers see how to leave.
-      reader.classList.add("chrome-on");
-      setTimeout(() => reader.classList.remove("chrome-on"), 1600);
+    if (on) showChrome(1600); // so readers see how to leave
+    else $("reader").classList.remove("chrome-on");
+  }
+  /* In focus mode the toolbar shows while the pointer is near the top (or a menu is open), then hides
+     after a short pause, so a quick move off the edge does not lose it. */
+  let chromeTimer = 0;
+  function showChrome(hideAfter) {
+    clearTimeout(chromeTimer);
+    $("reader").classList.add("chrome-on");
+    chromeTimer = setTimeout(hideChrome, hideAfter || 900);
+  }
+  function hideChrome() {
+    clearTimeout(chromeTimer);
+    const bar = document.querySelector(".reader .toolbar");
+    if (panelsOpen() || bar.matches(":hover, :focus-within")) {
+      chromeTimer = setTimeout(hideChrome, 600);
+      return;
     }
+    $("reader").classList.remove("chrome-on");
+  }
+  function wireFocusChrome() {
+    document.addEventListener("mousemove", (e) => {
+      if (!state.focus || $("reader").hidden) return;
+      const top = document.querySelector(".reader-main").getBoundingClientRect().top;
+      if (e.clientY - top < 72) showChrome();
+    });
   }
   function tauriWindow() {
     const t = window.__TAURI__;
@@ -559,7 +749,16 @@
   async function setFullscreen(on) {
     const win = tauriWindow();
     try {
-      if (win) await win.setFullscreen(on);
+      if (win) {
+        // A maximized window going full screen keeps its old height, leaving the taskbar strip
+        // uncovered. Restore it first, and maximize it again on the way out.
+        if (on) {
+          state.wasMaximized = await win.isMaximized();
+          if (state.wasMaximized) await win.unmaximize();
+        }
+        await win.setFullscreen(on);
+        if (!on && state.wasMaximized) await win.maximize();
+      }
       else if (on) await document.documentElement.requestFullscreen();
       else if (document.fullscreenElement) await document.exitFullscreen();
     } catch (e) {
@@ -576,8 +775,10 @@
     b.title = (on ? "Leave full screen" : "Full screen") + " (F11)";
     b.querySelector("[data-icon]").innerHTML = (window.ReaderIcons || {})[on ? "minimize" : "maximize"] || "";
   }
+  const PANELS = ["text-panel", "page-panel", "search-panel", "bookmark-panel"];
+  const POPOVER_BUTTONS = { "text-panel": "btn-text", "page-panel": "btn-page" };
   function panelsOpen() {
-    return ["display-panel", "search-panel", "bookmark-panel"].some((p) => !$(p).hidden);
+    return PANELS.some((p) => !$(p).hidden);
   }
   function overallPercent(chapter, ratio) {
     const cs = state.book.chapters;
@@ -861,18 +1062,30 @@
   /* ---------------------------------------------------------------- panels & keys */
 
   function closePanels() {
-    ["display-panel", "search-panel", "bookmark-panel"].forEach((p) => ($(p).hidden = true));
-    $("btn-display").setAttribute("aria-expanded", "false");
+    PANELS.forEach((p) => ($(p).hidden = true));
+    Object.values(POPOVER_BUTTONS).forEach((b) => $(b).setAttribute("aria-expanded", "false"));
   }
   function toggle(panel) {
     const open = $(panel).hidden;
     closePanels();
     $(panel).hidden = !open;
-    if (panel === "display-panel") $("btn-display").setAttribute("aria-expanded", String(open));
+    const button = POPOVER_BUTTONS[panel];
+    if (button) {
+      $(button).setAttribute("aria-expanded", String(open));
+      if (open) placePopover($(panel), $(button));
+    }
     if (open && panel === "search-panel") $("search-input").focus();
     if (open && panel === "bookmark-panel") renderBookmarks();
   }
 
+  /** Open a menu just under its button, with a small gap, kept inside the window. */
+  function placePopover(panel, button) {
+    const main = document.querySelector(".reader-main").getBoundingClientRect();
+    const b = button.getBoundingClientRect();
+    const bar = document.querySelector(".reader .toolbar").getBoundingClientRect();
+    panel.style.top = bar.bottom - main.top + 8 + "px";
+    panel.style.right = Math.max(8, main.right - b.right - 4) + "px";
+  }
   function wire() {
     const r = state.book.reader;
     $("btn-toc").addEventListener("click", () => {
@@ -883,7 +1096,20 @@
         save("tocHidden", reader.classList.contains("toc-hidden"));
       }
     });
-    $("btn-display").addEventListener("click", () => toggle("display-panel"));
+    $("btn-text").addEventListener("click", () => toggle("text-panel"));
+    $("btn-page").addEventListener("click", () => toggle("page-panel"));
+    // A click outside an open menu closes it. Moving the pointer never does.
+    document.addEventListener("pointerdown", (e) => {
+      for (const [panel, button] of Object.entries(POPOVER_BUTTONS)) {
+        if (!$(panel).hidden && !$(panel).contains(e.target) && !$(button).contains(e.target)) {
+          $(panel).hidden = true;
+          $(button).setAttribute("aria-expanded", "false");
+        }
+      }
+    });
+    window.addEventListener("resize", () => {
+      for (const [panel, button] of Object.entries(POPOVER_BUTTONS)) if (!$(panel).hidden) placePopover($(panel), $(button));
+    });
     $("btn-search").addEventListener("click", () => toggle("search-panel"));
     $("btn-bookmark").addEventListener("click", () => toggle("bookmark-panel"));
     $("add-bookmark").addEventListener("click", addBookmark);
@@ -898,6 +1124,8 @@
     document.querySelectorAll("[data-layout]").forEach((b) => b.addEventListener("click", () => setPref("layout", b.dataset.layout)));
     document.querySelectorAll("[data-spread]").forEach((b) => b.addEventListener("click", () => setPref("spread", b.dataset.spread)));
     document.querySelectorAll("[data-paper]").forEach((b) => b.addEventListener("click", () => setPref("paper", b.dataset.paper)));
+    document.querySelectorAll("[data-turn]").forEach((b) => b.addEventListener("click", () => setPref("turn", b.dataset.turn)));
+    wireFocusChrome();
     $("btn-focus").addEventListener("click", () => setFocusMode(!state.focus));
     $("btn-fullscreen").addEventListener("click", () => setFullscreen(!state.fullscreen));
     document.addEventListener("fullscreenchange", () => !tauriWindow() && syncFullscreen(!!document.fullscreenElement));

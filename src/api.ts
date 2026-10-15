@@ -70,6 +70,7 @@ export interface ReaderSettings {
   defaultLayout: string;
   pageSpread: string;
   paperLook: boolean;
+  pageTurn: string;
   defaultWidth: string;
 }
 

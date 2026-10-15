@@ -181,6 +181,8 @@ pub struct ReaderSettings {
     pub page_spread: String,
     /// Show the text on a paper sheet over a darker desk.
     pub paper_look: bool,
+    /// How pages turn in page mode: `slide`, `flip` (like a real book) or `none`.
+    pub page_turn: String,
     /// Text column width readers start with: `narrow`, `normal`, `wide` or `full`.
     pub default_width: String,
 }
@@ -210,6 +212,7 @@ impl Default for ReaderSettings {
             default_layout: "scroll".into(),
             page_spread: "auto".into(),
             paper_look: false,
+            page_turn: "slide".into(),
             default_width: "normal".into(),
         }
     }

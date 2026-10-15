@@ -4,6 +4,9 @@
 html, body { margin: 0; height: 100%; }
 /* Views scroll themselves; stray body children (e.g. Mermaid's tooltip) must not add a page scrollbar. */
 body { overflow: hidden; }
+/* No rubber-band bounce (WebView2/Edge) on the outer scroll areas. Scrollers inside a chapter
+   (code, wide tables) keep the default so leftover scrolling still moves the page. */
+html, body, .scroller, .home, .about, .toc, .popover, .side-list { overscroll-behavior: none; }
 body {
   background: var(--bc-paper);
   color: var(--bc-ink);
@@ -191,7 +194,7 @@ button, select, input { font: inherit; color: inherit; }
 .popover {
   position: absolute;
   right: 56px;
-  top: 52px;
+  top: 61px;
   z-index: 20;
   width: 340px;
   max-height: calc(100% - 64px);
@@ -402,3 +405,34 @@ html[data-theme="dark"] .reader.paged.paper.spread-2 .page-frame::before { backg
 .reader.focus.chrome-on .toolbar,
 .reader.focus .reader-main:has(.popover:not([hidden]), .side-panel:not([hidden])) .toolbar { opacity: 1; }
 .reader.focus.paper .toolbar { background: color-mix(in srgb, var(--rd-desk) 92%, transparent); }
+
+/* ------------------------------------------------------------ page turning: drag and flip */
+
+.reader.paged .scroller { position: relative; cursor: grab; touch-action: pan-y pinch-zoom; }
+.reader.paged .page-frame { cursor: grab; }
+.reader.paged .bc-chapter { cursor: auto; }
+.reader.dragging, .reader.dragging * { cursor: grabbing !important; user-select: none !important; }
+
+.flip-layer { position: absolute; z-index: 5; pointer-events: none; perspective: 2600px; }
+.flip-still, .flip-leaf, .flip-face { position: absolute; top: 0; background: var(--bc-paper); }
+.flip-still, .flip-face, .flip-leaf.single { overflow: hidden; }
+.flip-leaf { transform-style: preserve-3d; will-change: transform; }
+.flip-leaf.single { backface-visibility: hidden; box-shadow: 0 0 24px rgb(0 0 0 / 0.18); }
+.flip-face { backface-visibility: hidden; }
+.flip-face.back { transform: rotateY(180deg); }
+.flip-page { position: absolute; overflow: hidden; }
+/* The leaf darkens toward the spine as it lifts. */
+.flip-face::after, .flip-leaf.single::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: flip-shade 0.7s ease-in-out;
+}
+.flip-face:not(.back)::after { background: linear-gradient(to right, rgb(0 0 0 / 0.22), transparent 45%); }
+.flip-face.back::after { background: linear-gradient(to left, rgb(0 0 0 / 0.22), transparent 45%); }
+.flip-leaf.single::after { background: linear-gradient(to left, rgb(0 0 0 / 0.25), transparent 50%); }
+@keyframes flip-shade { 50% { opacity: 1; } }
+.flip-leaf.rev .flip-face:not(.back)::after { background: linear-gradient(to left, rgb(0 0 0 / 0.22), transparent 45%); }
+.flip-leaf.rev .flip-face.back::after { background: linear-gradient(to right, rgb(0 0 0 / 0.22), transparent 45%); }

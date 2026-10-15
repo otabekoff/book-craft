@@ -52,6 +52,9 @@
 
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
+/* No rubber-band bounce (WebView2/Edge) on the outer scroll areas. Inner scrollers keep the
+   default so they still hand leftover scrolling to the area around them. */
+html, body, .window-body, .chapters, .page, .cm-scroller, .ui-menu { overscroll-behavior: none; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
