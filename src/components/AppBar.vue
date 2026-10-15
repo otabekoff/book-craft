@@ -22,15 +22,9 @@ const sectionNames: Record<string, string> = {
   build: "Build",
 };
 
-const crumbs = computed(() => {
-  if (!store.config) return [];
-  const list = [store.config.meta.title || "Untitled", sectionNames[store.section]];
-  if (store.section === "write") {
-    const ch = store.chapters.find((c) => c.file === store.currentChapter);
-    if (ch) list.push(ch.title);
-  }
-  return list;
-});
+// Only the section: the book's name is in the sidebar and the chapter's in the page header,
+// so repeating them here was noise.
+const crumbs = computed(() => (store.config ? [sectionNames[store.section]] : []));
 
 function applyTheme() {
   if (theme.value === "system") document.documentElement.removeAttribute("data-theme");

@@ -92,7 +92,8 @@ async function remove(file: string) {
 function menuFor(file: string, index: number): MenuItem[] {
   const c = chapterRef(file);
   const kind = (k: string, label: string, icon: Component): MenuItem => ({
-    label: (c.kind || "chapter") === k ? `✓ ${label}` : label,
+    label,
+    checked: (c.kind || "chapter") === k,
     icon,
     action: () => (c.kind = k),
   });
@@ -130,8 +131,18 @@ function numberFor(i: number) {
   return c && c.kind === "chapter" && !c.hidden ? String(n) : "·";
 }
 
-function tryInReader() {
-  api.testRead().catch((e) => notify(errorText(e), "error"));
+const trying = ref(false);
+/** Builds a quick test copy of the book and opens it; the button waits until the reader is up. */
+async function tryInReader() {
+  if (trying.value) return;
+  trying.value = true;
+  try {
+    await api.testRead();
+  } catch (e) {
+    notify(errorText(e), "error");
+  } finally {
+    trying.value = false;
+  }
 }
 </script>
 
@@ -195,8 +206,8 @@ function tryInReader() {
       ></div>
     </UiScrollArea>
     <div class="sidebar-foot">
-      <UiButton variant="ghost" size="sm" :icon="Play" title="Open the book in the real reader without building packages" @click="tryInReader">
-        Try in reader
+      <UiButton variant="ghost" size="sm" :icon="Play" :loading="trying" :disabled="trying" title="Open the book in the real reader without building packages" @click="tryInReader">
+        {{ trying ? "Opening…" : "Try in reader" }}
       </UiButton>
       <span style="flex: 1"></span>
       <UiButton variant="ghost" size="sm" @click="closeProject">Close</UiButton>

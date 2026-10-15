@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Dropdown menu anchored to its trigger slot. Items: { label, icon?, danger?, separator?, action }.
 import { nextTick, onBeforeUnmount, ref, watch, type Component } from "vue";
+import { Check } from "@lucide/vue";
 
 export interface MenuItem {
   label?: string;
@@ -8,6 +9,8 @@ export interface MenuItem {
   danger?: boolean;
   separator?: boolean;
   disabled?: boolean;
+  /** Marks the current choice in a group (shown with a check mark). */
+  checked?: boolean;
   /** Indent level, for outline-like lists. */
   indent?: number;
   action?: () => void;
@@ -69,9 +72,10 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", outside, true)
     <div v-if="open" ref="menu" class="ui-menu" role="menu" :style="{ left: pos.left + 'px', top: pos.top + 'px' }" @keydown="key">
       <template v-for="(item, i) in items" :key="i">
         <hr v-if="item.separator" />
-        <button v-else type="button" role="menuitem" :class="{ danger: item.danger }" :disabled="item.disabled" :style="item.indent ? { paddingLeft: 10 + item.indent * 14 + 'px' } : undefined" @click="run(item)">
+        <button v-else type="button" :role="item.checked === undefined ? 'menuitem' : 'menuitemradio'" :aria-checked="item.checked" :class="{ danger: item.danger, checked: item.checked }" :disabled="item.disabled" :style="item.indent ? { paddingLeft: 10 + item.indent * 14 + 'px' } : undefined" @click="run(item)">
           <component :is="item.icon" v-if="item.icon" class="ico" aria-hidden="true" />
           <span>{{ item.label }}</span>
+          <Check v-if="item.checked" class="ico tick" aria-hidden="true" />
         </button>
       </template>
     </div>
@@ -88,6 +92,9 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", outside, true)
 .ui-menu button:hover, .ui-menu button:focus-visible { background: var(--panel-2); outline: none; }
 .ui-menu button:disabled { opacity: 0.45; cursor: default; }
 .ui-menu button.danger { color: var(--danger); }
+.ui-menu button.checked { color: var(--accent); font-weight: 600; }
+.ui-menu button.checked .ico { color: var(--accent); }
+.ui-menu .ico.tick { margin-left: auto; }
 .ui-menu button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui-menu .ico { flex: none; width: 16px; height: 16px; color: var(--muted); }
 .ui-menu button.danger .ico { color: var(--danger); }
