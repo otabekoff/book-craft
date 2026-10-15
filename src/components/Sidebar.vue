@@ -127,8 +127,17 @@ function numberFor(i: number) {
     const c = items.value[j];
     if (c && c.kind === "chapter" && !c.hidden) n++;
   }
-  const c = items.value[i];
-  return c && c.kind === "chapter" && !c.hidden ? String(n) : "·";
+  return String(n);
+}
+/** Unnumbered entries show what they are, with the same icons as the chapter menu. */
+const KIND_ICONS: Record<string, { icon: Component; label: string }> = {
+  front: { icon: BookOpen, label: "Front matter" },
+  part: { icon: BookMarked, label: "Part divider" },
+  back: { icon: FolderOutput, label: "Back matter" },
+};
+function kindIcon(c: { kind?: string; hidden?: boolean }) {
+  if (c.hidden) return { icon: EyeOff, label: "Left out of the book" };
+  return KIND_ICONS[c.kind || "chapter"] ?? null;
 }
 
 const trying = ref(false);
@@ -191,7 +200,8 @@ async function tryInReader() {
         @drop.prevent="onDrop(i)"
         @dragend="dragFrom = dropAt = null"
       >
-        <span class="num">{{ numberFor(i) }}</span>
+        <component :is="kindIcon(c)!.icon" v-if="kindIcon(c)" class="num kind-ico" :aria-label="kindIcon(c)!.label" role="img" :title="kindIcon(c)!.label" />
+        <span v-else class="num">{{ numberFor(i) }}</span>
         <span class="title">{{ c.title }}</span>
         <TriangleAlert v-if="c.missing" class="warn-ico" aria-label="File missing" />
         <UiMenu :items="menuFor(c.file, i)">

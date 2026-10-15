@@ -147,6 +147,8 @@ textarea.input { min-height: 80px; resize: vertical; line-height: 1.45; }
 .chapter-item.dragging { opacity: 0.4; }
 .chapter-item.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
 .chapter-item .num { font-size: 11px; color: var(--muted); min-width: 16px; font-variant-numeric: tabular-nums; }
+.chapter-item .kind-ico { width: 15px; height: 15px; min-width: 15px; margin-right: 1px; flex: none; }
+.chapter-item[aria-current="true"] .kind-ico { color: var(--accent); }
 .chapter-item .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .chapter-item.hidden-ch .title { color: var(--muted); text-decoration: line-through; }
 .chapter-item .menu-btn { opacity: 0; width: 28px; height: 28px; }
