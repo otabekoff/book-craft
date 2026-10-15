@@ -215,7 +215,8 @@
 .bc-chapter.bc-dropcaps > h1 + p::first-letter {
   initial-letter: 2;
   -webkit-initial-letter: 2;
-  margin-right: 0.12em;
+  /* Tied to the text size, not the letter's, so thin capitals like I keep a real gap. */
+  margin-right: calc(var(--bc-size) * 0.4);
   font-family: var(--bc-font-heading);
   font-weight: 650;
   color: var(--bc-accent-ink);
