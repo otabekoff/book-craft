@@ -29,6 +29,12 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    },
     "publisher": "Otabek Sadiridinov",
     "copyright": "Copyright © 2026 Otabek Sadiridinov",
     "license": "MIT",

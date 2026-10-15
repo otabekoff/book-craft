@@ -11,6 +11,7 @@ export { default as UiInput } from "./UiInput.vue";
 export { default as UiMenu, type MenuItem } from "./UiMenu.vue";
 export { default as UiRange } from "./UiRange.vue";
 export { default as UiScrollArea } from "./UiScrollArea.vue";
+export { default as UiScrollbars } from "./UiScrollbars.vue";
 export { default as UiSegmented } from "./UiSegmented.vue";
 export { default as UiSelect, type SelectOption } from "./UiSelect.vue";
 export { default as UiSwitch } from "./UiSwitch.vue";

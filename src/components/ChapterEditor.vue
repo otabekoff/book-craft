@@ -18,7 +18,7 @@ import {
   Bold, ChevronDown, Code, Columns2, Eye, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Pilcrow, Highlighter, Image as ImageIcon, ImageUp, Italic, Link,
   List, ListOrdered, ListTree, Moon, PenLine, Plus, Quote, Search, Strikethrough, Sun, SunMoon, Coffee, Table, TriangleAlert, X,
 } from "@lucide/vue";
-import { UiButton, UiIconButton, UiInput, UiMenu, UiScrollArea, UiSegmented, type MenuItem } from "../ui";
+import { UiButton, UiIconButton, UiInput, UiMenu, UiScrollArea, UiScrollbars, UiSegmented, type MenuItem } from "../ui";
 import { appTheme } from "../appTheme";
 
 const layoutOptions = [
@@ -97,7 +97,9 @@ const highlight = HighlightStyle.define([
 
 const theme = EditorView.theme({
   "&": { height: "100%", fontSize: "14.5px", backgroundColor: "var(--panel)", color: "var(--ink)" },
-  ".cm-scroller": { fontFamily: "var(--mono)", lineHeight: "1.65" },
+  // The native scrollbar is hidden; UiScrollbars draws an overlay one that takes no space.
+  ".cm-scroller": { fontFamily: "var(--mono)", lineHeight: "1.65", scrollbarWidth: "none" },
+  ".cm-scroller::-webkit-scrollbar": { display: "none" },
   ".cm-content": { padding: "20px 0 120px", caretColor: "var(--accent)", maxWidth: "860px" },
   ".cm-line": { padding: "0 22px" },
   ".cm-gutters": { backgroundColor: "var(--panel)", color: "var(--muted)", border: "none" },
@@ -471,7 +473,7 @@ const statusText = computed(
   </div>
 
   <div class="workspace" :class="layout">
-    <div class="editor-pane" ref="editorEl"></div>
+    <div class="editor-pane" ref="editorEl"><UiScrollbars :target="view?.scrollDOM" horizontal /></div>
     <div class="preview-pane">
       <iframe ref="frame" class="preview-frame" sandbox="allow-scripts" title="Preview" :srcdoc="srcdoc"></iframe>
     </div>
@@ -531,7 +533,7 @@ const statusText = computed(
 .workspace.editor { grid-template-columns: minmax(0, 1fr) 0; }
 .workspace.preview { grid-template-columns: 0 minmax(0, 1fr); }
 .workspace.editor .preview-pane, .workspace.preview .editor-pane { display: none; }
-.editor-pane { grid-column: 1; grid-row: 1; min-height: 0; overflow: hidden; border-right: 1px solid var(--line); background: var(--panel); }
+.editor-pane { grid-column: 1; grid-row: 1; position: relative; min-height: 0; overflow: hidden; border-right: 1px solid var(--line); background: var(--panel); }
 .workspace.editor .editor-pane :deep(.cm-content) { margin: 0 auto; }
 .preview-pane { grid-column: 2; grid-row: 1; position: relative; min-height: 0; background: var(--bg); }
 .preview-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
