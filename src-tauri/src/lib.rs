@@ -34,6 +34,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::save_settings,
+            commands::tools_install,
+            commands::legal_read,
+            commands::legal_write,
             commands::project_create,
             commands::project_open,
             commands::project_close,

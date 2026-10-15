@@ -13,6 +13,7 @@ pub mod samples;
 pub mod signing;
 pub mod theme;
 pub mod tools;
+pub mod tools_install;
 
 pub use config::BookConfig;
 pub use project::Project;

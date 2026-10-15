@@ -59,6 +59,45 @@ pub fn save_settings(state: State<AppState>, settings: StudioSettings) -> AppInf
     app_info(state)
 }
 
+/// Downloads a missing packaging tool into Book Craft's own tools folder
+/// (no administrator rights needed), then reports the tools again.
+#[tauri::command]
+pub async fn tools_install(app: AppHandle, state: State<'_, AppState>, id: String) -> R<AppInfo> {
+    let dir = book_core::tools_install::default_dir().ok_or("Windows did not report a local app data folder")?;
+    let log = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        book_core::tools_install::install(&id, &dir, &mut |line| {
+            let _ = log.emit("tools-log", line);
+        })
+    })
+    .await
+    .map_err(err)?
+    .map_err(|e| format!("{e:#}"))?;
+    Ok(app_info(state))
+}
+
+/// Reads a text file in the book's `legal` folder (the installer license).
+#[tauri::command]
+pub fn legal_read(state: State<AppState>, path: String) -> R<String> {
+    with_project(&state, |p| {
+        anyhow::ensure!(path.replace('\\', "/").starts_with("legal/"), "Only files in the legal folder can be read here");
+        Ok(std::fs::read_to_string(p.resolve(&path)?)?)
+    })
+}
+
+/// Saves the installer license as `legal/LICENSE.txt` (Windows line endings, which
+/// the installers expect) and returns that path.
+#[tauri::command]
+pub fn legal_write(state: State<AppState>, text: String) -> R<String> {
+    with_project(&state, |p| {
+        let rel = "legal/LICENSE.txt";
+        let file = p.root.join("legal").join("LICENSE.txt");
+        std::fs::create_dir_all(file.parent().unwrap())?;
+        std::fs::write(&file, text.replace("\r\n", "\n").replace('\n', "\r\n"))?;
+        Ok(rel.to_string())
+    })
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectData {

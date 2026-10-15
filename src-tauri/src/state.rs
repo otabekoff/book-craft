@@ -71,7 +71,7 @@ impl AppState {
     pub fn tools(&self) -> ToolPaths {
         let mut t = self.settings.lock().unwrap().tools.clone();
         t.extra_dirs = self.resources.extra_tool_dirs.clone();
-        t
+        t.with_downloads()
     }
 }
 

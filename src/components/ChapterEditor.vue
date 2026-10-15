@@ -498,14 +498,15 @@ const statusText = computed(
 .workspace.editor .editor-pane :deep(.cm-content) { margin: 0 auto; }
 .preview-pane { grid-column: 2; grid-row: 1; position: relative; min-height: 0; background: var(--bg); }
 .preview-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
-.insert-panel { position: absolute; top: 8px; left: 12px; right: 12px; max-height: calc(100% - 16px); z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 50px rgb(0 0 0 / 0.2); display: flex; flex-direction: column; overflow: hidden; }
-.insert-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.insert-panel { position: absolute; top: 12px; left: 16px; right: 16px; max-height: calc(100% - 24px); z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 50px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; overflow: hidden; }
+.insert-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .insert-head :deep(.ui-input) { flex: 1; }
 .insert-head .spacer { flex: 1; }
-.insert-groups { overflow-y: auto; padding: 12px; columns: 4 210px; column-gap: 16px; }
-.insert-groups section { break-inside: avoid; margin-bottom: 14px; }
-.insert-groups h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
-.insert-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+/* Groups are small cards packed into columns, with room between them and around the edges. */
+.insert-groups { overflow-y: auto; overscroll-behavior: none; padding: 18px; columns: 4 220px; column-gap: 16px; }
+.insert-groups section { break-inside: avoid; margin-bottom: 16px; padding: 10px 8px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.insert-groups h4 { margin: 2px 8px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.insert-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 10px; margin: 1px 0; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--ink); }
 .insert-item:hover { background: var(--accent-soft); color: var(--accent); }
 .insert-item.off { color: var(--muted); }
 .insert-item.off::after { content: " (off)"; font-size: 11px; }

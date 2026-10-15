@@ -5,6 +5,7 @@
 //! bookcraft build <folder> [--targets portable,nsis,msi,msix] [--reader <exe>] [--vendor <dir>] [--password <pfx password>] [--keep]
 //! bookcraft render <file.md>          print chapter HTML
 //! bookcraft tools                     show which packaging tools were found
+//! bookcraft tools install [missing|all|nsis|wix|sdk|webview2] [--dir <folder>]   download tools
 //! bookcraft cert new "CN=Name" <folder> --password <pw>   make a self-signed test certificate
 //! bookcraft cert show <file.pfx> [--password <pw>]
 //! ```
@@ -25,6 +26,35 @@ fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+/// `bookcraft tools install [nsis|wix|sdk|webview2|missing|all] [--dir <folder>]`
+fn cmd_tools_install(args: &[String]) -> anyhow::Result<()> {
+    use book_core::tools_install::{DOWNLOADS, default_dir, install};
+    let which = args.get(2).map(String::as_str).unwrap_or("missing");
+    let dir = flag(args, "--dir").map(PathBuf::from).or_else(default_dir).ok_or_else(|| anyhow::anyhow!("Pass --dir <folder>"))?;
+    let ids: Vec<&str> = match which {
+        "all" => DOWNLOADS.iter().map(|d| d.id).collect(),
+        "missing" => {
+            let mut ids: Vec<&str> = ToolPaths::default()
+                .with_downloads()
+                .status()
+                .into_iter()
+                .filter(|t| t.path.is_none())
+                .filter_map(|t| t.download.map(|d| d.id))
+                .collect();
+            ids.dedup();
+            ids
+        }
+        id => vec![id],
+    };
+    if ids.is_empty() {
+        println!("Every packaging tool is already installed.");
+    }
+    for id in ids {
+        install(id, &dir, &mut |line| println!("{line}"))?;
+    }
+    Ok(())
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
@@ -32,8 +62,9 @@ fn main() -> ExitCode {
         Some("build") => cmd_build(&args),
         Some("render") => cmd_render(&args),
         Some("cert") => cmd_cert(&args),
+        Some("tools") if args.get(1).map(String::as_str) == Some("install") => cmd_tools_install(&args),
         Some("tools") => {
-            for t in ToolPaths::default().status() {
+            for t in ToolPaths::default().with_downloads().status() {
                 println!("{:<24} {:<34} {}", t.name, t.needed_for, t.path.unwrap_or_else(|| format!("missing — {}", t.help)));
             }
             Ok(())
@@ -105,7 +136,7 @@ fn cmd_build(args: &[String]) -> anyhow::Result<()> {
         reader_template: reader,
         vendor_dir: Some(vendor),
         fonts_dir: Some(root.join("src-tauri/resources/runtime/fonts")),
-        tools: ToolPaths::default(),
+        tools: ToolPaths::default().with_downloads(),
         certificate_password: flag(args, "--password").or_else(|| std::env::var("BOOKCRAFT_CERT_PASSWORD").ok()),
         keep_work_files: args.iter().any(|a| a == "--keep"),
     };

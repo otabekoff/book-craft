@@ -27,6 +27,8 @@ pub struct ToolStatus {
     pub needed_for: String,
     pub path: Option<String>,
     pub help: String,
+    /// How Book Craft can fetch it when it is missing.
+    pub download: Option<crate::tools_install::Download>,
 }
 
 fn existing(p: PathBuf) -> Option<PathBuf> {
@@ -47,6 +49,16 @@ fn tauri_cache() -> Option<PathBuf> {
 }
 
 impl ToolPaths {
+    /// Also search the folder Book Craft downloads missing tools into.
+    pub fn with_downloads(mut self) -> Self {
+        if let Some(dir) = crate::tools_install::default_dir() {
+            if !self.extra_dirs.contains(&dir) {
+                self.extra_dirs.insert(0, dir);
+            }
+        }
+        self
+    }
+
     fn override_path(&self, value: &str) -> Option<PathBuf> {
         let v = value.trim();
         if v.is_empty() { None } else { existing(PathBuf::from(v)) }
@@ -87,11 +99,17 @@ impl ToolPaths {
     }
 
     pub fn makeappx(&self) -> Option<PathBuf> {
-        self.override_path(&self.makeappx).or_else(|| windows_sdk_tool("makeappx.exe")).or_else(|| on_path("makeappx.exe"))
+        self.override_path(&self.makeappx)
+            .or_else(|| self.in_extra("WindowsSDK/x64/makeappx.exe"))
+            .or_else(|| windows_sdk_tool("makeappx.exe"))
+            .or_else(|| on_path("makeappx.exe"))
     }
 
     pub fn signtool(&self) -> Option<PathBuf> {
-        self.override_path(&self.signtool).or_else(|| windows_sdk_tool("signtool.exe")).or_else(|| on_path("signtool.exe"))
+        self.override_path(&self.signtool)
+            .or_else(|| self.in_extra("WindowsSDK/x64/signtool.exe"))
+            .or_else(|| windows_sdk_tool("signtool.exe"))
+            .or_else(|| on_path("signtool.exe"))
     }
 
     pub fn webview2_bootstrapper(&self) -> Option<PathBuf> {
@@ -102,38 +120,47 @@ impl ToolPaths {
 
     pub fn status(&self) -> Vec<ToolStatus> {
         let s = |p: Option<PathBuf>| p.map(|p| p.display().to_string());
-        vec![
+        let mut list = vec![
             ToolStatus {
                 name: "NSIS".into(),
                 needed_for: "Setup .exe".into(),
                 path: s(self.makensis()),
-                help: "Install NSIS 3 from nsis.sourceforge.io, or point to makensis.exe.".into(),
+                help: "Install it below, or install NSIS 3 yourself and point to makensis.exe.".into(),
+                download: None,
             },
             ToolStatus {
                 name: "WiX Toolset 3".into(),
                 needed_for: ".msi".into(),
                 path: s(self.wix()),
-                help: "Install WiX Toolset 3.14 from wixtoolset.org, or point to its bin folder.".into(),
+                help: "Install it below, or install WiX Toolset 3.14 yourself and point to its bin folder.".into(),
+                download: None,
             },
             ToolStatus {
                 name: "MakeAppx".into(),
                 needed_for: ".msix".into(),
                 path: s(self.makeappx()),
-                help: "Install the Windows 10/11 SDK (it includes makeappx.exe).".into(),
+                help: "Install it below (Microsoft's SDK build tools), or install the Windows SDK.".into(),
+                download: None,
             },
             ToolStatus {
                 name: "SignTool".into(),
                 needed_for: "Code signing".into(),
                 path: s(self.signtool()),
-                help: "Install the Windows 10/11 SDK (it includes signtool.exe).".into(),
+                help: "Install it below (Microsoft's SDK build tools), or install the Windows SDK.".into(),
+                download: None,
             },
             ToolStatus {
                 name: "WebView2 bootstrapper".into(),
                 needed_for: "Installing WebView2 on older PCs".into(),
                 path: s(self.webview2_bootstrapper()),
                 help: "Download MicrosoftEdgeWebview2Setup.exe from Microsoft, or choose \"download\" in Build settings.".into(),
+                download: None,
             },
-        ]
+        ];
+        for t in &mut list {
+            t.download = crate::tools_install::download_for(&t.name).copied();
+        }
+        list
     }
 }
 

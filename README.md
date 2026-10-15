@@ -13,7 +13,8 @@ Get the latest installer from [Releases](https://github.com/otabekoff/book-craft
 
 - Read in one long scroll or turn pages, one or two at a time, with Fade, Slide, Flip (a page curl you can drag) or Instant turns.
 - Paper look, focus mode, full screen, light, sepia and dark themes, text size, typeface, line spacing and width (narrow to full).
-- Search, bookmarks, remembered reading position, page numbers and a contents sidebar.
+- Search, bookmarks, highlights in four colours (select text, then pick a colour), remembered reading position, page numbers, page arrows and a contents sidebar.
+- The author decides whether readers can select and copy text; code blocks keep their copy button either way.
 - Callouts, quotes, boxes, columns, tabs, math (KaTeX), chemistry, diagrams (Mermaid), charts, drawings, code with highlighting, quizzes, flashcards, exercises, timelines and more.
 
 ## How it works
@@ -43,7 +44,7 @@ At start-up the reader takes its identity (window title, app ID, data folder) fr
 
 ## Development
 
-Prerequisites: Rust (MSVC), Bun, and for packaging NSIS 3, WiX Toolset 3.14 and the Windows SDK (MakeAppx, SignTool). Tauri's own caches in `%LOCALAPPDATA%\tauri` (NSIS, WiX, WebView2 bootstrapper) are found automatically.
+Prerequisites: Rust (MSVC) and Bun. Packaging uses NSIS 3, WiX Toolset 3.14 and MakeAppx/SignTool. If they are missing, **Build** offers to download them (no administrator rights needed) into `%LOCALAPPDATA%\uz.nurafshon.bookcraft\tools`, or shows the `winget` command to install them system-wide. Tauri's own caches in `%LOCALAPPDATA%\tauri` and installed copies are found automatically.
 
 ```bash
 bun install
@@ -98,6 +99,12 @@ cargo run -p bookcraft -- build "D:\Books\My Book" --targets portable,nsis,msi,m
 Set `BOOKCRAFT_CERT_PASSWORD` (or pass `--password`) to sign.
 
 ```bash
+cargo run -p bookcraft -- tools install missing
+```
+
+Downloads any missing packaging tools (`nsis`, `wix`, `sdk` for MakeAppx and SignTool, `webview2`, or `all`) into the same folder the studio uses.
+
+```bash
 cargo run -p bookcraft -- cert new "CN=My Press" D:\certs --password secret
 ```
 
@@ -149,6 +156,7 @@ Each family can be switched off in **Blocks & features**; KaTeX and Mermaid are 
 
 ## Notes
 
+- **Installer license:** **Build → Installation → License shown by installers → Write…** opens an editor with templates (all rights reserved, a simple end-user agreement, CC BY, CC BY-NC). It is saved as `legal/LICENSE.txt` in the book, and the setup .exe and .msi show it before installing.
 - **MSIX** must be signed to install outside the Store, with a certificate whose subject equals the book's Publisher ID (`CN=…`). The Store signs Store submissions itself.
 - **MSI** versions use the first three numbers (`1.2.3`); keep the package ID the same across editions so upgrades replace older installs.
 - Unsigned apps trigger SmartScreen warnings until signed with a trusted certificate.

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
-  BadgeCheck, CircleCheck, CircleX, FileKey, FolderOpen, FolderSearch, Hammer, KeyRound, Package, Play, Settings2,
+  BadgeCheck, CircleCheck, CircleX, Copy, Download, FileKey, FilePen, FolderOpen, FolderSearch, Hammer, KeyRound, Package, Play, Settings2,
   ShieldAlert, ShieldCheck, ShieldPlus, Wrench,
 } from "@lucide/vue";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { api, errorText, type BuildReport, type CertificateInfo, type LogLine, type Target } from "../api";
+import { api, errorText, type BuildReport, type CertificateInfo, type LogLine, type Target, type ToolDownload } from "../api";
 import { notify, saveConfigNow, store } from "../store";
 import { UiBadge, UiButton, UiCard, UiDialog, UiField, UiInput, UiSegmented, UiSelect, UiSwitch, type SelectOption, UiScrollArea } from "../ui";
 import AssetPicker from "./AssetPicker.vue";
@@ -145,6 +145,103 @@ async function build() {
   }
 }
 
+/* ---------------------------------------------------------------- missing tools */
+
+const installing = ref<string | null>(null);
+const toolLog = ref("");
+const toolFor = (name: string | null) => (name ? store.info?.tools.find((t) => t.name === name) : undefined);
+/** Downloads for the packages that are switched on but whose tool is missing (once each). */
+const missingDownloads = computed(() => {
+  const seen = new Map<string, { download: ToolDownload; targets: string[] }>();
+  for (const t of targets.value) {
+    if (!(b.value as any)[t.on] || toolFound(t.tool)) continue;
+    const d = toolFor(t.tool)?.download;
+    if (!d) continue;
+    const entry = seen.get(d.id) ?? { download: d, targets: [] };
+    entry.targets.push(t.label);
+    seen.set(d.id, entry);
+  }
+  return [...seen.values()];
+});
+
+async function installTool(d: ToolDownload) {
+  installing.value = d.id;
+  toolLog.value = "";
+  try {
+    store.info = await api.installTool(d.id);
+    notify(`${d.name} is installed and ready.`);
+  } catch (e) {
+    notify(errorText(e), "error");
+  } finally {
+    installing.value = null;
+    toolLog.value = "";
+  }
+}
+async function copyWinget(d: ToolDownload) {
+  try {
+    await navigator.clipboard.writeText(d.winget);
+    notify("Copied: " + d.winget);
+  } catch (e) {
+    notify(errorText(e), "error");
+  }
+}
+
+/* ---------------------------------------------------------------- installer license */
+
+const licenseTemplates: SelectOption<string>[] = [
+  { value: "rights", label: "All rights reserved", description: "Personal reading only" },
+  { value: "eula", label: "Simple end-user agreement" },
+  { value: "cc-by", label: "Creative Commons BY 4.0", description: "Share and adapt with credit" },
+  { value: "cc-by-nc", label: "Creative Commons BY-NC 4.0", description: "Non-commercial sharing with credit" },
+];
+function licenseTemplate(kind: string) {
+  const m = meta.value;
+  const year = new Date().getFullYear();
+  const owner = m.publisher || m.author || "the author";
+  const title = m.title || "this book";
+  switch (kind) {
+    case "eula":
+      return `END-USER LICENSE AGREEMENT\n\n${title}\nCopyright (c) ${year} ${owner}. All rights reserved.\n\nBy installing this app you agree to these terms.\n\n1. You may install and read this book on devices you own or control.\n2. You may not copy, sell, rent, share or publish the book or any part of it, except short quotations for review.\n3. You may not reverse engineer, modify or redistribute the app.\n4. The app is provided "as is", without warranty of any kind. To the extent permitted by law, ${owner} is not liable for any damages arising from its use.\n\nIf you do not agree, do not install the app.\n`;
+    case "cc-by":
+      return `${title}\nCopyright (c) ${year} ${owner}.\n\nThis work is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0).\n\nYou are free to share (copy and redistribute the material in any medium or format) and adapt it (remix, transform and build upon it) for any purpose, even commercially, as long as you give appropriate credit, provide a link to the license, and indicate if changes were made.\n\nFull license: https://creativecommons.org/licenses/by/4.0/legalcode\n`;
+    case "cc-by-nc":
+      return `${title}\nCopyright (c) ${year} ${owner}.\n\nThis work is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).\n\nYou may share and adapt the material for non-commercial purposes only, as long as you give appropriate credit, provide a link to the license, and indicate if changes were made.\n\nFull license: https://creativecommons.org/licenses/by-nc/4.0/legalcode\n`;
+    default:
+      return `${title}\nCopyright (c) ${year} ${owner}. All rights reserved.\n\nThis book is licensed for your personal reading only. No part of it may be reproduced, distributed or transmitted in any form or by any means without the prior written permission of ${owner}, except for brief quotations in reviews.\n`;
+  }
+}
+const license = ref<{ text: string; template: string; busy: boolean } | null>(null);
+async function editLicense() {
+  let text = "";
+  const current = b.value.licenseFile;
+  if (current && current.replace(/\\/g, "/").startsWith("legal/")) {
+    try {
+      text = await api.readLegal(current);
+    } catch {
+      /* start from a template */
+    }
+  }
+  license.value = { text: text || licenseTemplate("rights"), template: "rights", busy: false };
+}
+function applyTemplate(kind: string) {
+  if (!license.value) return;
+  license.value.template = kind;
+  license.value.text = licenseTemplate(kind);
+}
+async function saveLicense() {
+  if (!license.value) return;
+  license.value.busy = true;
+  try {
+    b.value.licenseFile = await api.writeLegal(license.value.text);
+    await saveConfigNow();
+    notify("License saved to legal/LICENSE.txt. The setup .exe and .msi will show it.");
+    license.value = null;
+  } catch (e) {
+    notify(errorText(e), "error");
+    if (license.value) license.value.busy = false;
+  }
+}
+
 async function saveTools() {
   if (!store.info) return;
   try {
@@ -165,10 +262,15 @@ onMounted(async () => {
     await nextTick();
     logEl.value?.scrollTo({ top: logEl.value.scrollHeight });
   });
+  unlistenTools = await listen<string>("tools-log", (e) => (toolLog.value = e.payload));
   store.info = await api.appInfo();
   if (b.value.signing.enabled) checkCertificate();
 });
-onBeforeUnmount(() => unlisten?.());
+let unlistenTools: UnlistenFn | null = null;
+onBeforeUnmount(() => {
+  unlisten?.();
+  unlistenTools?.();
+});
 </script>
 
 <template>
@@ -201,6 +303,21 @@ onBeforeUnmount(() => unlisten?.());
         <ul><li v-for="p in store.problems" :key="p">{{ p }}</li></ul>
       </div>
 
+      <div v-for="m in missingDownloads" :key="m.download.id" class="notice warn missing-tool">
+        <Download class="mt-ico" aria-hidden="true" />
+        <div class="mt-text">
+          <b>{{ m.download.name }} is missing</b>
+          <span>Needed for {{ m.targets.join(" and ") }}. Book Craft can download it for you (no administrator rights needed)<template v-if="m.download.winget">, or install it with winget</template>.</span>
+          <small v-if="installing === m.download.id && toolLog">{{ toolLog }}</small>
+        </div>
+        <div class="mt-actions">
+          <UiButton size="sm" variant="primary" :icon="Download" :loading="installing === m.download.id" :disabled="!!installing" @click="installTool(m.download)">
+            {{ installing === m.download.id ? "Installing…" : "Install" }}
+          </UiButton>
+          <UiButton v-if="m.download.winget" size="sm" variant="ghost" :icon="Copy" :title="m.download.winget" @click="copyWinget(m.download)">winget</UiButton>
+        </div>
+      </div>
+
       <UiCard title="Packages" :icon="Package">
         <div class="targets">
           <div v-for="t in targets" :key="t.key" class="target" :class="{ on: (b as any)[t.on] }" @click="(b as any)[t.on] = !(b as any)[t.on]">
@@ -220,10 +337,13 @@ onBeforeUnmount(() => unlisten?.());
             <UiSegmented v-model="b.installMode" :options="installModes" aria-label="Install for" />
           </UiField>
           <UiField label="WebView2 runtime" for="b-wv2"><UiSelect id="b-wv2" v-model="b.webview2" :options="webview2Options" /></UiField>
-          <UiField label="License shown by installers">
-            <AssetPicker v-model="b.licenseFile" :extensions="['txt', 'md']" subdir="legal" placeholder="No license page" />
-          </UiField>
         </div>
+        <UiField label="License shown by installers" hint="The setup .exe and .msi show it before installing. Write one here or pick a .txt file; it is saved in the book's legal folder.">
+          <div class="row license-row">
+            <AssetPicker v-model="b.licenseFile" :extensions="['txt', 'md']" subdir="legal" placeholder="No license page" />
+            <UiButton :icon="FilePen" @click="editLicense">{{ b.licenseFile ? "Edit text…" : "Write…" }}</UiButton>
+          </div>
+        </UiField>
         <div class="grid">
           <UiSwitch v-model="b.startMenuShortcut" label="Start menu shortcut" />
           <UiSwitch v-model="b.desktopShortcut" label="Desktop shortcut" />
@@ -309,6 +429,12 @@ onBeforeUnmount(() => unlisten?.());
             <b>{{ t.name }}</b>
             <small>{{ t.neededFor }}</small>
             <small class="path">{{ t.path || t.help }}</small>
+            <div v-if="!t.path && t.download" class="tool-actions">
+              <UiButton size="sm" :icon="Download" :loading="installing === t.download.id" :disabled="!!installing" @click="installTool(t.download)">
+                {{ installing === t.download.id ? "Installing…" : "Install" }}
+              </UiButton>
+              <UiButton v-if="t.download.winget" size="sm" variant="ghost" :icon="Copy" :title="t.download.winget" @click="copyWinget(t.download)">winget</UiButton>
+            </div>
           </div>
         </div>
         <div v-if="showTools && store.info" class="grid two">
@@ -322,6 +448,20 @@ onBeforeUnmount(() => unlisten?.());
       </UiCard>
     </div>
   </UiScrollArea>
+
+  <UiDialog v-if="license" title="License shown by installers" @close="license = null">
+    <p class="muted">Readers see this before installing the setup .exe or .msi. It is saved as <code>legal/LICENSE.txt</code> in your book.</p>
+    <UiField label="Start from a template" hint="Replaces the text below.">
+      <UiSelect :model-value="license.template" :options="licenseTemplates" @update:model-value="applyTemplate($event as string)" />
+    </UiField>
+    <UiField label="License text" for="lic-text">
+      <textarea id="lic-text" v-model="license.text" class="license-text" spellcheck="true" rows="14"></textarea>
+    </UiField>
+    <template #actions>
+      <UiButton @click="license = null">Cancel</UiButton>
+      <UiButton variant="primary" :loading="license.busy" :disabled="!license.text.trim()" @click="saveLicense">Save license</UiButton>
+    </template>
+  </UiDialog>
 
   <UiDialog v-if="newCert" title="Create a test certificate" @close="newCert = null">
     <p class="muted">A self-signed code-signing certificate, saved in Book Craft’s data folder (not in your book). It is valid for two years.</p>
@@ -380,6 +520,15 @@ code { font-family: var(--mono); font-size: 12px; }
 .log .warn { color: var(--warn); }
 .log .error { color: var(--danger); white-space: pre-wrap; }
 .tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.tool-actions { display: flex; gap: 6px; margin-top: 4px; }
+.license-row > :first-child { flex: 1; min-width: 0; }
+.missing-tool { display: flex; align-items: center; gap: 14px; }
+.missing-tool .mt-ico { width: 20px; height: 20px; flex: none; }
+.missing-tool .mt-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.missing-tool .mt-text small { color: var(--muted); }
+.missing-tool .mt-actions { display: flex; gap: 6px; flex: none; }
+.license-text { width: 100%; min-height: 260px; resize: vertical; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--ink); font: 13px/1.55 var(--mono, ui-monospace, monospace); }
+.license-text:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .tool { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
 .tool small { grid-column: 2; color: var(--muted); font-size: 12px; }
 .tool .path { overflow-wrap: anywhere; }
