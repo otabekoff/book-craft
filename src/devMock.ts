@@ -17,7 +17,7 @@ const config = {
   },
   chapters: chapters.map((c) => ({ file: c.file, title: "", hidden: false, kind: "chapter" })),
   typography: { bodyFont: "sitka", headingFont: "same", customFont: "", baseSize: 19, lineHeight: 1.65, maxWidth: 700, justify: false, hyphenate: true, dropCaps: true, smartQuotes: true, sceneBreak: "✻ ✻ ✻", paragraphStyle: "spaced", headingNumbers: false, customCss: "", uiFont: "segoe", codeFont: "cascadia" },
-  reader: { defaultTheme: "light", allowThemeChange: true, allowFontSizeChange: true, allowFontChange: true, showToc: true, showProgress: true, rememberPosition: true, showHomeScreen: true, enableSearch: true, enableBookmarks: true, windowWidth: 1200, windowHeight: 820, minWidth: 480, minHeight: 400, allowCopy: true, allowPrint: true, openLinksExternally: true, titleBar: "custom", fontChoices: ["georgia", "segoe"], defaultLayout: "scroll", pageSpread: "auto", paperLook: false, pageTurn: "slide", defaultWidth: "normal" },
+  reader: { defaultTheme: "light", allowThemeChange: true, allowFontSizeChange: true, allowFontChange: true, showToc: true, showProgress: true, rememberPosition: true, showHomeScreen: true, enableSearch: true, enableBookmarks: true, windowWidth: 1200, windowHeight: 820, minWidth: 480, minHeight: 400, allowCopy: true, allowPrint: true, openLinksExternally: true, titleBar: "custom", fontChoices: ["georgia", "segoe"], defaultLayout: "scroll", pageSpread: "auto", paperLook: false, pageTurn: "slide", pageNumbers: true, defaultWidth: "normal" },
   modules: {
     code: { enabled: true, highlight: true, lineNumbers: false, copyButton: true, wrapLines: false, lightTheme: "InspiredGitHub", darkTheme: "OneHalfDark", runnable: true },
     math: { enabled: true, numberEquations: true, chemistry: true },

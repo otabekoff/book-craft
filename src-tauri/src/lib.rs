@@ -15,6 +15,9 @@ pub fn run() {
         .setup(|app| {
             let state = state::AppState::load(app.handle());
             app.manage(state);
+            if let Some(window) = app.get_webview_window("main") {
+                open_at_own_size(&window, 1440.0, 920.0);
+            }
             // Ctrl+C in the terminal (or closing it) would otherwise kill the app mid-edit.
             // Ask the window to save, then exit; quit anyway if it does not answer in time.
             let handle = app.handle().clone();
@@ -56,4 +59,28 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Book Craft");
+}
+
+/// Windows can open new windows maximized (a system setting on smaller screens), which also makes
+/// the restored size fill the screen so the maximize button does nothing. Open at the size we asked
+/// for whenever it fits.
+fn open_at_own_size(window: &tauri::WebviewWindow, width: f64, height: f64) {
+    if !window.is_maximized().unwrap_or(false) {
+        return;
+    }
+    let fits = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|m| {
+            let scale = m.scale_factor();
+            let area = m.work_area().size;
+            width * scale <= area.width as f64 && height * scale <= area.height as f64
+        })
+        .unwrap_or(true);
+    if fits {
+        let _ = window.unmaximize();
+        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+        let _ = window.center();
+    }
 }

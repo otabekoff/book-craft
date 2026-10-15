@@ -128,7 +128,7 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
           <UiField label="Line spacing">
             <UiRange v-model="t.lineHeight" :min="1.3" :max="2.1" :step="0.05" aria-label="Line spacing" :format="(v) => v.toFixed(2)" />
           </UiField>
-          <UiField label="Page turn" hint="Flip turns pages like a real book.">
+          <UiField label="Page turn" hint="Flip curls the page like a real book; readers can drag its corner.">
             <UiSegmented v-model="r.pageTurn" :options="turnOptions" aria-label="Page turn" />
           </UiField>
           <UiField label="Text width">
@@ -169,6 +169,9 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
           </UiField>
           <UiField label="Text width">
             <UiSegmented v-model="r.defaultWidth" :options="widthOptions" aria-label="Text width" />
+          </UiField>
+          <UiField label="Page numbers" hint="A number under each page in page mode.">
+            <UiSwitch v-model="r.pageNumbers" label="Show page numbers" />
           </UiField>
           <UiField label="Paper look" hint="Text sits on a paper sheet over a darker desk.">
             <UiSwitch v-model="r.paperLook" label="Show the page as paper" />

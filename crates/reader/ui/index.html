@@ -164,6 +164,13 @@
             <button type="button" data-turn="none">Instant</button>
           </div>
         </div>
+        <div class="pop-row" id="row-numbers">
+          <span class="pop-label">Page numbers</span>
+          <div class="seg seg-text" role="group" aria-label="Page numbers" id="numbers-buttons">
+            <button type="button" data-numbers="on">Show</button>
+            <button type="button" data-numbers="off">Hide</button>
+          </div>
+        </div>
         <div class="pop-row">
           <span class="pop-label">Look</span>
           <div class="seg seg-text" role="group" aria-label="Page look" id="paper-buttons">
@@ -198,7 +205,9 @@
       <div class="scroller" id="scroller">
         <div class="page-frame" id="page-frame">
           <article id="chapter" class="bc-chapter" tabindex="-1"></article>
-          <div class="page-number" id="page-number" aria-live="polite"></div>
+          <div class="page-numbers" id="page-numbers" aria-hidden="true"></div>
+          <div class="grip grip-prev" title="Previous page" aria-hidden="true"></div>
+          <div class="grip grip-next" title="Next page" aria-hidden="true"></div>
         </div>
         <nav class="chapter-nav" aria-label="Chapter navigation">
           <button type="button" class="btn btn-secondary" id="prev">← Previous</button>

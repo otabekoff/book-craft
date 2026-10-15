@@ -222,6 +222,7 @@ button, select, input { font: inherit; color: inherit; }
 .seg-text { background: var(--bc-surface-2); padding: 3px; border-radius: var(--bc-r-sm); }
 .seg-text button { border: 0; background: transparent; padding: 6px 10px; min-height: 32px; border-radius: 6px; font-size: 12px; color: var(--bc-muted); cursor: pointer; }
 .seg-text button[aria-pressed="true"] { background: var(--bc-paper); color: var(--bc-ink); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); font-weight: 600; }
+#theme-buttons { gap: 12px; }
 .swatch { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--bc-border-strong); cursor: pointer; padding: 0; }
 .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bc-paper), 0 0 0 4px var(--bc-accent); }
 .swatch-light { background: #ffffff; }
@@ -306,7 +307,7 @@ button, select, input { font: inherit; color: inherit; }
   .scroller { overflow: visible; }
   body, html, .app, .view, .reader, .reader-main { height: auto; display: block; overflow: visible; }
   .reader.paged .scroller { overflow: visible !important; display: block !important; }
-  .reader .page-number { display: none !important; }
+  .reader .page-numbers, .reader .grip, .curl-layer { display: none !important; }
   .reader.paged .page-frame, .reader.paged .bc-chapter { display: block; overflow: visible !important; box-shadow: none !important; width: auto !important; height: auto !important; columns: auto !important; transform: none !important; padding: 0 !important; }
 }
 
@@ -314,7 +315,7 @@ button, select, input { font: inherit; color: inherit; }
 /* ------------------------------------------------------------ layouts: page mode, paper, focus, full screen */
 
 .page-frame { display: contents; }
-.page-number { display: none; }
+.page-numbers, .grip { display: none; }
 .app.fullscreen .titlebar { display: none; }
 .app.fullscreen .viewer { top: 0; }
 
@@ -356,18 +357,6 @@ html[data-theme="dark"] .reader { --rd-desk: color-mix(in srgb, var(--bc-paper) 
 .reader.paged .bc-chapter > :is(div, aside, figure, blockquote, pre, details, table),
 .reader.paged .bc-chapter :is(img, .bc-code, tr, li, .katex-display, .mermaid) { break-inside: avoid; }
 .reader.paged .bc-chapter :is(h1, h2, h3, h4, h5, h6) { break-after: avoid; break-inside: avoid; }
-.reader.paged .page-number {
-  display: block;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 18px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--bc-muted);
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-}
 .reader.paged.spread-2 .page-frame::before {
   content: "";
   position: absolute;
@@ -413,26 +402,37 @@ html[data-theme="dark"] .reader.paged.paper.spread-2 .page-frame::before { backg
 .reader.paged .bc-chapter { cursor: auto; }
 .reader.dragging, .reader.dragging * { cursor: grabbing !important; user-select: none !important; }
 
-.flip-layer { position: absolute; z-index: 5; pointer-events: none; perspective: 2600px; }
-.flip-still, .flip-leaf, .flip-face { position: absolute; top: 0; background: var(--bc-paper); }
-.flip-still, .flip-face, .flip-leaf.single { overflow: hidden; }
-.flip-leaf { transform-style: preserve-3d; will-change: transform; }
-.flip-leaf.single { backface-visibility: hidden; box-shadow: 0 0 24px rgb(0 0 0 / 0.18); }
-.flip-face { backface-visibility: hidden; }
-.flip-face.back { transform: rotateY(180deg); }
-.flip-page { position: absolute; overflow: hidden; }
-/* The leaf darkens toward the spine as it lifts. */
-.flip-face::after, .flip-leaf.single::after {
-  content: "";
+
+/* Page numbers sit under each page, like a printed book. */
+.reader.paged .page-numbers { display: block; position: absolute; inset: 0; pointer-events: none; }
+.page-num, .curl-sheet .page-num {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  animation: flip-shade 0.7s ease-in-out;
+  bottom: 18px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--bc-muted);
+  font-family: var(--bc-font-ui);
+  font-variant-numeric: tabular-nums;
 }
-.flip-face:not(.back)::after { background: linear-gradient(to right, rgb(0 0 0 / 0.22), transparent 45%); }
-.flip-face.back::after { background: linear-gradient(to left, rgb(0 0 0 / 0.22), transparent 45%); }
-.flip-leaf.single::after { background: linear-gradient(to left, rgb(0 0 0 / 0.25), transparent 50%); }
-@keyframes flip-shade { 50% { opacity: 1; } }
-.flip-leaf.rev .flip-face:not(.back)::after { background: linear-gradient(to left, rgb(0 0 0 / 0.22), transparent 45%); }
-.flip-leaf.rev .flip-face.back::after { background: linear-gradient(to right, rgb(0 0 0 / 0.22), transparent 45%); }
+
+/* Grips along the outer page edges: grab to curl the page, click to turn. */
+.reader.paged .grip { display: block; position: absolute; top: 0; bottom: 0; width: 72px; z-index: 3; cursor: grab; touch-action: none; }
+.reader.paged .grip-prev { left: 0; }
+.reader.paged .grip-next { right: 0; }
+
+/* The curl: copies of the pages drawn over the chapter while a page turns. */
+.curl-layer { position: absolute; z-index: 5; overflow: hidden; pointer-events: none; }
+.reader.paged.paper .curl-layer { border-radius: 4px; }
+.curl-base, .curl-space { position: absolute; top: 0; }
+.curl-base { left: 0; }
+.curl-sheet { position: absolute; left: 0; top: 0; overflow: hidden; background: var(--bc-paper); }
+.curl-content { position: absolute; overflow: hidden; }
+.curl-back { transform-origin: 0 0; }
+.curl-back.blank { background: color-mix(in srgb, var(--bc-paper) 94%, var(--bc-ink)); }
+.curl-flap { position: absolute; inset: 0; filter: drop-shadow(0 0 10px rgb(0 0 0 / 0.28)); }
+html[data-theme="dark"] .curl-flap { filter: drop-shadow(0 0 12px rgb(0 0 0 / 0.6)); }
+.curl-strip { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.curl-cast { background: linear-gradient(to right, rgb(0 0 0 / 0.3), transparent); }
+.curl-bend { background: linear-gradient(to left, rgb(0 0 0 / 0.14), transparent); }
+.curl-gloss { background: linear-gradient(to right, rgb(0 0 0 / 0.16), rgb(255 255 255 / 0.06) 35%, transparent); }
+html[data-theme="dark"] .curl-cast { background: linear-gradient(to right, rgb(0 0 0 / 0.55), transparent); }

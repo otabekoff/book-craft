@@ -183,6 +183,8 @@ pub struct ReaderSettings {
     pub paper_look: bool,
     /// How pages turn in page mode: `slide`, `flip` (like a real book) or `none`.
     pub page_turn: String,
+    /// Show a number under each page in page mode.
+    pub page_numbers: bool,
     /// Text column width readers start with: `narrow`, `normal`, `wide` or `full`.
     pub default_width: String,
 }
@@ -213,6 +215,7 @@ impl Default for ReaderSettings {
             page_spread: "auto".into(),
             paper_look: false,
             page_turn: "slide".into(),
+            page_numbers: true,
             default_width: "normal".into(),
         }
     }

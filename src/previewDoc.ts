@@ -12,6 +12,8 @@ export function previewDocument(theme: string, cssVersion: number): string {
 <script src="${ASSET_BASE}/_runtime/blocks.js"><\/script>
 <style>
 html, body { margin: 0; background: var(--bc-paper); color: var(--bc-ink); }
+/* No rubber-band stretch when scrolling past either end. */
+html, body { overscroll-behavior: none; }
 body { padding: 40px 28px 120px; }
 .empty { font-family: var(--bc-font-ui); color: var(--bc-muted); text-align: center; margin-top: 30vh; }
 </style>

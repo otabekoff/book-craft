@@ -16,7 +16,7 @@
     lastWheel: 0,
   };
   // Page mode: the chapter is laid out in CSS columns inside a fixed frame, one column per page.
-  const pager = { page: 0, pages: 1, cols: 1, n: 1, pw: 0, gap: 0, step: 0, padX: 0, padTop: 0, h: 0, flip: null };
+  const pager = { page: 0, pages: 1, cols: 1, n: 1, pw: 0, gap: 0, step: 0, padX: 0, padTop: 0, h: 0, fw: 0, fh: 0, curl: null };
   let prefs = {};
   let storeKey = "bookcraft";
 
@@ -88,6 +88,7 @@
     reader.classList.toggle("width-full", width === "full");
     $("row-spread").hidden = !isPaged();
     $("row-turn").hidden = !isPaged();
+    $("row-numbers").hidden = !isPaged();
 
     document.querySelectorAll("[data-theme-choice]").forEach((b) =>
       b.setAttribute("aria-pressed", String((prefs.theme || state.book.reader.defaultTheme) === b.dataset.themeChoice))
@@ -98,6 +99,7 @@
     document.querySelectorAll("[data-spread]").forEach((b) => b.setAttribute("aria-pressed", String(currentSpread() === b.dataset.spread)));
     document.querySelectorAll("[data-paper]").forEach((b) => b.setAttribute("aria-pressed", String(currentPaper() === b.dataset.paper)));
     document.querySelectorAll("[data-turn]").forEach((b) => b.setAttribute("aria-pressed", String(currentTurn() === b.dataset.turn)));
+    document.querySelectorAll("[data-numbers]").forEach((b) => b.setAttribute("aria-pressed", String(currentNumbers() === b.dataset.numbers)));
     $("size-value").textContent = currentSize() + " px";
     renderFontList();
     renderSettings();
@@ -140,6 +142,9 @@
   }
   function currentTurn() {
     return prefs.turn || state.book.reader.pageTurn || "slide";
+  }
+  function currentNumbers() {
+    return prefs.numbers || (state.book.reader.pageNumbers === false ? "off" : "on");
   }
   function isPaged() {
     return currentLayout() === "pages";
@@ -395,9 +400,9 @@
     $("page-frame").removeAttribute("style");
     ["width", "height", "columns", "column-gap", "transform", "--page-h"].forEach((k) => article.style.removeProperty(k));
     article.classList.remove("turning");
-    finishFlip();
+    endCurl();
     $("reader").classList.remove("spread-2");
-    $("page-number").textContent = "";
+    $("page-numbers").textContent = "";
   }
   /** Size the frame and columns for the current window. Keeps the page index (clamped). */
   function paginate() {
@@ -425,7 +430,8 @@
     article.style.columnGap = gap + "px";
     article.style.setProperty("--page-h", contentH + "px");
     $("reader").classList.toggle("spread-2", n === 2);
-    Object.assign(pager, { n, pw, gap, step: contentW + gap, padX: pad.x, padTop: pad.top, h: contentH });
+    endCurl();
+    Object.assign(pager, { n, pw, gap, step: contentW + gap, padX: pad.x, padTop: pad.top, h: contentH, fw: contentW + pad.x * 2, fh: availH });
     countPages();
     goto(pager.page, false);
   }
@@ -439,21 +445,34 @@
     const article = $("chapter");
     const from = pager.page;
     pager.page = Math.max(0, Math.min(pager.pages - 1, page || 0));
-    const style = animate && !reducedMotion.matches ? currentTurn() : "none";
-    finishFlip();
-    if (style === "flip" && Math.abs(pager.page - from) === 1) flip(from, pager.page);
-    article.classList.toggle("turning", style === "slide");
+    endCurl();
+    article.classList.toggle("turning", !!animate && !reducedMotion.matches && currentTurn() === "slide" && pager.page !== from);
     article.style.transform = "translateX(" + -pager.page * pager.step + "px)";
-    const first = pager.page * pager.n + 1;
-    const last = Math.min(pager.cols, first + pager.n - 1);
-    $("page-number").textContent = (first === last ? first : first + "–" + last) + " of " + pager.cols;
+    renderPageNumbers();
     updateProgress();
     clearTimeout(state.saveTimer);
     state.saveTimer = setTimeout(saveNow, 400);
   }
+  /** A number under each page, like a printed book. */
+  function renderPageNumbers() {
+    const box = $("page-numbers");
+    box.textContent = "";
+    if (currentNumbers() === "off") return;
+    for (let i = 0; i < pager.n; i++) {
+      const col = pager.page * pager.n + i;
+      if (col >= pager.cols) break;
+      const num = el("span", { class: "page-num" }, String(col + 1));
+      num.style.left = pager.padX + i * (pager.pw + pager.gap) + pager.pw / 2 + "px";
+      box.appendChild(num);
+    }
+  }
   /** Next or previous page, crossing into the neighbouring chapter at either end. */
   function turn(dir) {
     if (state.chapter < 0) return;
+    if (currentTurn() === "flip" && !reducedMotion.matches && isPaged()) {
+      autoCurl(dir);
+      return;
+    }
     countPages();
     const count = state.book.chapters.length;
     if (dir > 0) {
@@ -492,94 +511,268 @@
       }
     });
   }
-  /* A real-book turn: the leaf rotates around the spine (two pages) or the page edge (one page),
-     drawn with copies of the pages. The chapter itself jumps at once and is uncovered as the leaf moves. */
-  function pageCopy(col, x) {
+  /* ------------------------------------------------------------ page curl
+     A real-book turn. The page is folded along the line halfway between its corner and the pointer:
+     the part past the fold flips over and shows the next page on its back, and the page underneath
+     shows through where it lifted. Everything is drawn with copies of the pages over the chapter;
+     the chapter itself only moves once the turn is done.
+
+     "Sheet space" has its origin at the spine (the page's inner edge), x toward the outer edge (W),
+     y down (H). A backward turn is the same fold played in reverse with the earlier spread. */
+
+  /** A full-height sheet of paper holding one page's text and number (or blank when col is null). */
+  function pageSheet(col, width, contentX) {
+    const sheet = document.createElement("div");
+    sheet.className = "curl-sheet";
+    sheet.style.width = width + "px";
+    sheet.style.height = pager.fh + "px";
+    if (col == null || col < 0 || col >= pager.cols) return sheet;
     const box = document.createElement("div");
-    box.className = "flip-page";
-    box.style.cssText = "left:" + x + "px;top:" + pager.padTop + "px;width:" + pager.pw + "px;height:" + pager.h + "px";
-    if (col >= 0 && col < pager.cols) {
-      const a = $("chapter");
-      const c = a.cloneNode(true);
-      c.removeAttribute("id");
-      c.removeAttribute("tabindex");
-      c.classList.remove("turning");
-      c.style.transform = "translateX(" + -col * (pager.pw + pager.gap) + "px)";
-      // Canvases lose their drawing when copied.
-      const src = a.querySelectorAll("canvas");
-      c.querySelectorAll("canvas").forEach((d, i) => {
-        try {
-          d.getContext("2d").drawImage(src[i], 0, 0);
-        } catch (e) {
-          /* tainted or empty */
-        }
-      });
-      box.appendChild(c);
+    box.className = "curl-content";
+    box.style.cssText = "left:" + contentX + "px;top:" + pager.padTop + "px;width:" + pager.pw + "px;height:" + pager.h + "px";
+    const a = $("chapter");
+    const copy = a.cloneNode(true);
+    copy.removeAttribute("id");
+    copy.removeAttribute("tabindex");
+    copy.classList.remove("turning");
+    copy.style.transform = "translateX(" + -col * (pager.pw + pager.gap) + "px)";
+    const src = a.querySelectorAll("canvas"); // canvases lose their drawing when copied
+    copy.querySelectorAll("canvas").forEach((d, i) => {
+      try {
+        d.getContext("2d").drawImage(src[i], 0, 0);
+      } catch (e) {
+        /* empty or tainted */
+      }
+    });
+    box.appendChild(copy);
+    sheet.appendChild(box);
+    if (currentNumbers() !== "off") {
+      const num = el("span", { class: "page-num" }, String(col + 1));
+      num.style.left = contentX + pager.pw / 2 + "px";
+      sheet.appendChild(num);
     }
-    return box;
+    return sheet;
   }
-  function sheet(cls, left, width, height) {
+  function strip(cls, width) {
     const d = document.createElement("div");
-    d.className = cls;
-    d.style.left = left + "px";
+    d.className = "curl-strip " + cls;
     d.style.width = width + "px";
-    d.style.height = height + "px";
     return d;
   }
-  function flip(from, to) {
-    const frame = $("page-frame");
-    const { n, pw, gap, padX } = pager;
-    const fwd = to > from;
-    const height = pager.padTop + pager.h + 12;
-    const layer = document.createElement("div");
-    layer.className = "flip-layer";
-    layer.setAttribute("aria-hidden", "true");
-    layer.style.cssText = "left:" + frame.offsetLeft + "px;top:" + frame.offsetTop + "px;width:" + frame.offsetWidth + "px;height:" + height + "px";
-    let leaf;
-    let frames;
+  /** Prepare a turn in one direction. Returns null when there is nowhere to go. */
+  function startCurl(dir, top) {
+    endCurl();
+    countPages();
+    const s = pager.page;
+    const last = state.chapter === state.book.chapters.length - 1;
+    const cross = dir > 0 ? s >= pager.pages - 1 : s <= 0;
+    if (cross && (dir > 0 ? last : state.chapter === 0)) return null;
+    const n = pager.n;
+    const target = cross ? null : s + dir;
+    const col = (spread, i) => (spread == null ? null : spread * n + i);
+    let spineX, contentX, front, back, under, base = null;
     if (n === 2) {
-      const half = pw + gap / 2;
-      const spine = padX + half;
-      // The page that does not move stays covered by its old content until the leaf lands on it.
-      const still = sheet("flip-still", fwd ? 0 : spine, spine, height);
-      still.appendChild(pageCopy(fwd ? from * 2 : from * 2 + 1, fwd ? padX : gap / 2));
-      leaf = sheet(fwd ? "flip-leaf" : "flip-leaf rev", fwd ? spine : spine - half, half, height);
-      leaf.style.transformOrigin = fwd ? "left center" : "right center";
-      const front = sheet("flip-face", 0, half, height);
-      front.appendChild(pageCopy(fwd ? from * 2 + 1 : from * 2, fwd ? gap / 2 : 0));
-      const back = sheet("flip-face back", 0, half, height);
-      back.appendChild(pageCopy(fwd ? to * 2 : to * 2 + 1, fwd ? 0 : gap / 2));
-      leaf.append(front, back);
-      layer.append(still, leaf);
-      frames = [{ transform: "rotateY(0deg)" }, { transform: "rotateY(" + (fwd ? -180 : 180) + "deg)" }];
-    } else {
-      // One page: the old page swings away to the left, or the previous one swings back in over it.
-      const w = frame.offsetWidth;
-      leaf = sheet("flip-leaf single", 0, w, height);
-      leaf.style.transformOrigin = "left center";
-      leaf.appendChild(pageCopy(fwd ? from : to, padX));
-      if (!fwd) {
-        const still = sheet("flip-still", 0, w, height);
-        still.appendChild(pageCopy(from, padX));
-        layer.appendChild(still);
+      spineX = pager.padX + pager.pw + pager.gap / 2;
+      contentX = pager.gap / 2;
+      if (dir > 0) {
+        front = col(s, 1);
+        back = col(target, 0);
+        under = col(target, 1);
+      } else {
+        front = col(target, 1);
+        back = col(s, 0);
+        under = col(s, 1);
+        base = col(target, 0);
       }
-      layer.appendChild(leaf);
-      frames = fwd ? [{ transform: "rotateY(0deg)" }, { transform: "rotateY(-100deg)" }] : [{ transform: "rotateY(-100deg)" }, { transform: "rotateY(0deg)" }];
+    } else {
+      spineX = 0;
+      contentX = pager.padX;
+      front = dir > 0 ? col(s, 0) : col(target, 0);
+      under = dir > 0 ? col(target, 0) : col(s, 0);
+      back = null; // the back of a single page is blank paper
     }
+    const W = pager.fw - spineX;
+    const H = pager.fh;
+    const frame = $("page-frame");
+    const layer = document.createElement("div");
+    layer.className = "curl-layer";
+    layer.setAttribute("aria-hidden", "true");
+    layer.style.cssText = "left:" + frame.offsetLeft + "px;top:" + frame.offsetTop + "px;width:" + pager.fw + "px;height:" + H + "px";
+    if (n === 2 && dir < 0) {
+      const left = pageSheet(base, spineX, pager.padX);
+      left.classList.add("curl-base");
+      layer.appendChild(left);
+    }
+    const space = document.createElement("div");
+    space.className = "curl-space";
+    space.style.cssText = "left:" + spineX + "px;width:" + W + "px;height:" + H + "px";
+    const underEl = pageSheet(under, W, contentX);
+    const underShadow = strip("curl-cast", 70);
+    underEl.appendChild(underShadow);
+    const frontEl = pageSheet(front, W, contentX);
+    const frontShade = strip("curl-bend", 40);
+    frontEl.appendChild(frontShade);
+    const flap = document.createElement("div");
+    flap.className = "curl-flap";
+    const backEl = pageSheet(back, W, n === 2 ? pager.padX : contentX);
+    backEl.classList.add("curl-back");
+    if (n === 1) backEl.classList.add("blank");
+    const backShade = strip("curl-gloss", 60);
+    backEl.appendChild(backShade);
+    flap.appendChild(backEl);
+    space.append(underEl, frontEl, flap);
+    layer.appendChild(space);
     $("scroller").appendChild(layer);
-    const anim = leaf.animate(frames, { duration: n === 2 ? 700 : 520, easing: fwd || n === 2 ? "cubic-bezier(0.45, 0.05, 0.3, 1)" : "cubic-bezier(0.2, 0.7, 0.3, 1)" });
-    pager.flip = { layer, anim };
-    anim.finished.then(
-      () => pager.flip && pager.flip.anim === anim && finishFlip(),
-      () => {}
-    );
+    const curl = { dir, cross, target, W, H, cy: top ? 0 : H, x: 0, y: 0, layer, frontEl, backEl, underShadow, frontShade, backShade, anim: 0 };
+    pager.curl = curl;
+    return curl;
   }
-  function finishFlip() {
-    const f = pager.flip;
-    if (!f) return;
-    pager.flip = null;
-    f.anim.cancel();
-    f.layer.remove();
+  function clipPoly(pts, side) {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % pts.length];
+      const fa = side(a);
+      const fb = side(b);
+      if (fa >= 0) out.push(a);
+      if (fa >= 0 !== fb >= 0) {
+        const t = fa / (fa - fb);
+        out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      }
+    }
+    return out;
+  }
+  function polygon(pts) {
+    if (pts.length < 3) return "polygon(0 0, 0 0, 0 0)";
+    return "polygon(" + pts.map((p) => p[0].toFixed(1) + "px " + p[1].toFixed(1) + "px").join(", ") + ")";
+  }
+  function placeStrip(elm, x, y, angle, before) {
+    const len = 4 * Math.hypot(pager.fw, pager.fh);
+    elm.style.height = len + "px";
+    elm.style.transform =
+      "translate(" + x + "px," + y + "px) rotate(" + angle + "rad) translate(" + (before ? -parseFloat(elm.style.width) : 0) + "px," + -len / 2 + "px)";
+  }
+  /** Fold the page so its corner sits at (px, py) in sheet space. */
+  function curlTo(c, px, py) {
+    const { W, H, cy } = c;
+    const cx = W;
+    let x = px;
+    let y = py;
+    // Paper does not stretch: the corner stays within reach of the spine's ends.
+    [
+      [0, cy, W],
+      [0, H - cy, Math.hypot(W, H)],
+    ].forEach(([ax, ay, reach]) => {
+      const dx = x - ax;
+      const dy = y - ay;
+      const d = Math.hypot(dx, dy);
+      if (d > reach) {
+        x = ax + (dx * reach) / d;
+        y = ay + (dy * reach) / d;
+      }
+    });
+    c.x = x;
+    c.y = y;
+    let nx = cx - x;
+    let ny = cy - y;
+    const len = Math.hypot(nx, ny);
+    if (len < 0.5) {
+      c.frontEl.style.clipPath = "none";
+      c.backEl.style.visibility = "hidden";
+      c.underShadow.style.opacity = "0";
+      return;
+    }
+    nx /= len;
+    ny /= len;
+    const mx = (cx + x) / 2;
+    const my = (cy + y) / 2;
+    const dist = (q) => (q[0] - mx) * nx + (q[1] - my) * ny;
+    const rect = [
+      [0, 0],
+      [W, 0],
+      [W, H],
+      [0, H],
+    ];
+    const cut = clipPoly(rect, dist);
+    c.frontEl.style.clipPath = polygon(clipPoly(rect, (q) => -dist(q)));
+    // The back: its own x runs from the outer edge to the spine; fold it over the line.
+    c.backEl.style.visibility = "visible";
+    c.backEl.style.clipPath = polygon(cut.map((q) => [W - q[0], q[1]]));
+    const k = 2 * (mx * nx + my * ny);
+    const a = -(1 - 2 * nx * nx);
+    const b = 2 * nx * ny;
+    const cc = -2 * nx * ny;
+    const d = 1 - 2 * ny * ny;
+    const e = (1 - 2 * nx * nx) * W + k * nx;
+    const f = -2 * nx * ny * W + k * ny;
+    c.backEl.style.transform = "matrix(" + [a, b, cc, d, e, f].map((v) => v.toFixed(5)).join(",") + ")";
+    // Shading: the shadow the lifted page casts, the bend near the fold, and light on the flap.
+    const angle = Math.atan2(ny, nx);
+    const depth = Math.min(1, len / (W * 0.6));
+    placeStrip(c.underShadow, mx, my, angle, false);
+    c.underShadow.style.opacity = String(0.35 + 0.65 * depth);
+    placeStrip(c.frontShade, mx, my, angle, true);
+    placeStrip(c.backShade, W - mx, my, Math.atan2(ny, -nx), false);
+  }
+  /** Move the corner to (tx, ty) along a gentle arc, then finish or settle back. */
+  function curlAnimate(c, tx, ty, ms, done) {
+    cancelAnimationFrame(c.anim);
+    const x0 = c.x;
+    const y0 = c.y;
+    const lift = (c.cy === 0 ? 1 : -1) * c.H * 0.1 * Math.min(1, Math.abs(tx - x0) / (2 * c.W));
+    const t0 = performance.now();
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / ms);
+      const e = ease(t);
+      curlTo(c, x0 + (tx - x0) * e, y0 + (ty - y0) * e + lift * Math.sin(Math.PI * e));
+      if (t < 1) c.anim = requestAnimationFrame(step);
+      else {
+        c.anim = 0;
+        done();
+      }
+    };
+    c.anim = requestAnimationFrame(step);
+  }
+  /** The page has landed: show the new spread under the copies, then remove them. */
+  function landCurl(c) {
+    if (pager.curl !== c) return;
+    if (c.cross) {
+      if (c.dir < 0) state.openAtEnd = true;
+      location.hash = "#read/" + (state.chapter + c.dir);
+      setTimeout(() => pager.curl === c && endCurl(), 1500); // the new chapter normally replaces it first
+      return;
+    }
+    pager.curl = null; // keep goto from removing it twice
+    goto(c.target, false);
+    c.layer.remove();
+  }
+  function endCurl() {
+    const c = pager.curl;
+    if (!c) return;
+    pager.curl = null;
+    cancelAnimationFrame(c.anim);
+    c.layer.remove();
+  }
+  const TURN_MS = 760;
+  function autoCurl(dir) {
+    const busy = pager.curl;
+    if (busy) {
+      // Finish the turn in progress at once, then start the next.
+      cancelAnimationFrame(busy.anim);
+      if (busy.settling) endCurl();
+      else landCurl(busy);
+      if (busy.cross) return;
+    }
+    const c = startCurl(dir, false);
+    if (!c) return;
+    if (dir > 0) {
+      curlTo(c, c.W, c.H);
+      curlAnimate(c, -c.W, c.H, TURN_MS, () => landCurl(c));
+    } else {
+      curlTo(c, -c.W, c.H);
+      curlAnimate(c, c.W, c.H, TURN_MS, () => landCurl(c));
+    }
   }
   function scrollsItself(node, dy) {
     for (let n = node; n && n.id !== "chapter"; n = n.parentElement) {
@@ -592,14 +785,15 @@
     return false;
   }
   const INTERACTIVE = "a, button, input, textarea, select, summary, label, details, video, audio, iframe, canvas, [role=button], [contenteditable], .bc-code, .bc-flashcard, .bc-quiz";
-  /** True over the page margins, the gutter or the desk: where a mouse can grab the page without selecting text. */
-  function onMargin(x, y) {
-    const r = $("page-frame").getBoundingClientRect();
-    const left = r.left + pager.padX;
-    const top = r.top + pager.padTop;
-    const inText = x >= left && x <= r.right - pager.padX && y >= top && y <= top + pager.h;
-    const inGutter = pager.n === 2 && x > left + pager.pw && x < left + pager.pw + pager.gap;
-    return !inText || inGutter;
+  /** Which way a press outside the text turns: the grips and the desk on either side. */
+  function sideOf(target, x) {
+    if (target.closest(".grip-prev")) return -1;
+    if (target.closest(".grip-next")) return 1;
+    if (target.id === "scroller" || target.id === "page-frame") {
+      const r = $("page-frame").getBoundingClientRect();
+      return x < r.left + r.width / 2 ? -1 : 1;
+    }
+    return 0;
   }
   function wirePages() {
     const scroller = $("scroller");
@@ -636,35 +830,40 @@
       },
       { passive: false }
     );
-    // Click the outer part of a page (or the desk beside it) to turn.
+    // Click the page edges (the grips) or the desk beside the page to turn.
     scroller.addEventListener("click", (e) => {
       if (state.suppressClick) {
         state.suppressClick = false;
         return;
       }
       if (!isPaged() || e.button !== 0) return;
-      if (e.target.closest(INTERACTIVE)) return;
-      if (String(window.getSelection && window.getSelection()).length) return;
-      const r = $("page-frame").getBoundingClientRect();
-      const zone = Math.min(160, r.width * 0.2);
-      if (e.clientX < r.left + zone) turn(-1);
-      else if (e.clientX > r.right - zone) turn(1);
+      const dir = sideOf(e.target, e.clientX);
+      if (dir) turn(dir);
     });
-    // Drag to turn: touch and pen anywhere, a mouse from the margins (so text can still be selected).
+    // Drag to turn: grab a page edge or the desk with a mouse (the text stays selectable), or drag
+    // anywhere with a finger or pen. With Flip the page curls under the pointer.
     let drag = null;
+    const toSheet = (c, x, y) => {
+      const r = $("page-frame").getBoundingClientRect();
+      return [x - r.left - (pager.fw - c.W), y - r.top];
+    };
     scroller.addEventListener("pointerdown", (e) => {
       if (!isPaged() || e.button !== 0 || e.target.closest(INTERACTIVE)) return;
-      const mouse = e.pointerType === "mouse";
-      if (mouse && !onMargin(e.clientX, e.clientY)) return;
-      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), moved: false };
-      if (mouse) e.preventDefault();
+      const side = sideOf(e.target, e.clientX);
+      if (e.pointerType === "mouse" && !side) return;
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), side, moved: false, curl: null, vx: 0, lx: e.clientX, lt: performance.now() };
+      if (e.pointerType === "mouse") e.preventDefault();
     });
     scroller.addEventListener("pointermove", (e) => {
       if (!drag || e.pointerId !== drag.id) return;
       const dx = e.clientX - drag.x;
       const dy = e.clientY - drag.y;
+      const now = performance.now();
+      drag.vx = (e.clientX - drag.lx) / Math.max(1, now - drag.lt);
+      drag.lx = e.clientX;
+      drag.lt = now;
       if (!drag.moved) {
-        if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+        if (Math.hypot(dx, dy) < 6 || (!drag.side && Math.abs(dx) < Math.abs(dy))) return;
         drag.moved = true;
         try {
           scroller.setPointerCapture(e.pointerId);
@@ -672,10 +871,16 @@
           /* the pointer is already gone */
         }
         $("reader").classList.add("dragging");
-        finishFlip();
+        if (currentTurn() === "flip" && !reducedMotion.matches) {
+          const r = $("page-frame").getBoundingClientRect();
+          drag.curl = startCurl(drag.side || (dx < 0 ? 1 : -1), drag.y < r.top + r.height / 2);
+        } else endCurl();
       }
-      if (currentTurn() === "slide") {
-        // Follow the finger, with resistance where there is no page to go to.
+      if (drag.curl) {
+        const [x, y] = toSheet(drag.curl, e.clientX, e.clientY);
+        curlTo(drag.curl, x, y);
+      } else if (currentTurn() === "slide") {
+        // Follow the pointer, with resistance where there is no page to go to.
         const atStart = pager.page === 0 && state.chapter === 0;
         const atEnd = pager.page === pager.pages - 1 && state.chapter === state.book.chapters.length - 1;
         const pull = (dx > 0 && atStart) || (dx < 0 && atEnd) ? dx * 0.25 : dx;
@@ -692,10 +897,25 @@
       state.suppressClick = true;
       setTimeout(() => (state.suppressClick = false), 0);
       const dx = e.clientX - d.x;
+      const ok = e.type === "pointerup";
+      if (d.curl) {
+        const c = d.curl;
+        // Turn when the corner passed the middle, or with a quick flick the right way.
+        const flick = c.dir > 0 ? d.vx < -0.45 : d.vx > 0.45;
+        const finish = ok && (flick || (c.dir > 0 ? c.x < 0 : c.x > 0));
+        const tx = finish === c.dir > 0 ? -c.W : c.W;
+        const ms = 260 + 260 * (Math.abs(tx - c.x) / (2 * c.W));
+        if (finish) curlAnimate(c, tx, c.cy, ms, () => landCurl(c));
+        else {
+          c.settling = true;
+          curlAnimate(c, tx, c.cy, ms, () => pager.curl === c && endCurl());
+        }
+        return;
+      }
       const fast = Math.abs(dx) / Math.max(1, performance.now() - d.t) > 0.5;
       const page = pager.page;
       const chapter = state.chapter;
-      if (e.type === "pointerup" && (Math.abs(dx) > 70 || (fast && Math.abs(dx) > 20))) turn(dx < 0 ? 1 : -1);
+      if (ok && (Math.abs(dx) > 70 || (fast && Math.abs(dx) > 20))) turn(dx < 0 ? 1 : -1);
       if (pager.page === page && state.chapter === chapter) goto(page, currentTurn() === "slide"); // snap back
     };
     scroller.addEventListener("pointerup", endDrag);
@@ -705,7 +925,7 @@
       if (isPaged() && e.target.id !== "chapter") reveal(e.target);
     });
     // Late images and diagrams change the page count.
-    $("chapter").addEventListener("load", () => isPaged() && (countPages(), goto(pager.page, false)), true);
+    $("chapter").addEventListener("load", () => isPaged() && !pager.curl && (countPages(), goto(pager.page, false)), true);
     if (window.ResizeObserver) new ResizeObserver(() => isPaged() && relayout()).observe(scroller);
   }
 
@@ -1125,6 +1345,7 @@
     document.querySelectorAll("[data-spread]").forEach((b) => b.addEventListener("click", () => setPref("spread", b.dataset.spread)));
     document.querySelectorAll("[data-paper]").forEach((b) => b.addEventListener("click", () => setPref("paper", b.dataset.paper)));
     document.querySelectorAll("[data-turn]").forEach((b) => b.addEventListener("click", () => setPref("turn", b.dataset.turn)));
+    document.querySelectorAll("[data-numbers]").forEach((b) => b.addEventListener("click", () => setPref("numbers", b.dataset.numbers)));
     wireFocusChrome();
     $("btn-focus").addEventListener("click", () => setFocusMode(!state.focus));
     $("btn-fullscreen").addEventListener("click", () => setFullscreen(!state.fullscreen));
