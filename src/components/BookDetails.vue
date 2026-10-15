@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { BookText, FileCog, Fingerprint, Palette, TriangleAlert, Wand } from "@lucide/vue";
 import { api, errorText } from "../api";
 import { applyProject, notify, saveConfigNow, store } from "../store";
-import { UiButton, UiCard, UiColor, UiField, UiInput, UiSegmented, UiSelect, type SelectOption } from "../ui";
+import { UiButton, UiCard, UiColor, UiField, UiInput, UiSegmented, UiSelect, type SelectOption, UiScrollArea } from "../ui";
 import AssetPicker from "./AssetPicker.vue";
 
 const meta = computed(() => store.config!.meta);
@@ -63,7 +63,7 @@ function suggestPublisherId() {
 
 <template>
   <header class="topbar"><h1>Book details</h1><span class="spacer"></span><span class="status">{{ store.saving ? "Saving…" : "Saved automatically" }}</span></header>
-  <div class="page">
+  <UiScrollArea class="page-area" viewport-class="page">
     <div class="page-inner">
       <div class="page-title">
         <div>
@@ -144,7 +144,7 @@ function suggestPublisherId() {
         <UiSegmented :model-value="store.format" :options="formatOptions" aria-label="Settings file format" @update:model-value="setFormat($event as any)" />
       </UiCard>
     </div>
-  </div>
+  </UiScrollArea>
 </template>
 
 

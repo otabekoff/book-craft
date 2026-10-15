@@ -882,3 +882,10 @@ details.bc-callout[open] > summary { margin-bottom: 0.45em; }
   .bc-code-tools, .bc-quiz-actions { display: none !important; }
   .bc-tab[hidden] { display: block !important; }
 }
+
+/* Scrollbars inside the book (code blocks, wide tables, long outputs): slim and in the theme's colours. */
+.bc-chapter ::-webkit-scrollbar { width: 10px; height: 10px; }
+.bc-chapter ::-webkit-scrollbar-track, .bc-chapter ::-webkit-scrollbar-corner { background: transparent; }
+.bc-chapter ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--bc-ink) 22%, transparent); border: 2px solid transparent; border-radius: 999px; background-clip: padding-box; }
+.bc-chapter ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--bc-ink) 38%, transparent); }
+.bc-chapter ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }

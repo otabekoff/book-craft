@@ -6,7 +6,7 @@ import {
 } from "@lucide/vue";
 import { api, ASSET_BASE, errorText } from "../api";
 import { applyProject, closeProject, notify, saveConfigNow, store, type Section } from "../store";
-import { UiButton, UiDialog, UiField, UiIconButton, UiInput, UiMenu, type MenuItem } from "../ui";
+import { UiButton, UiDialog, UiField, UiIconButton, UiInput, UiMenu, UiScrollArea, type MenuItem } from "../ui";
 
 const sections: { id: Section; label: string; icon: Component }[] = [
   { id: "write", label: "Write", icon: PenLine },
@@ -157,7 +157,7 @@ function tryInReader() {
         <span v-if="s.id === 'assets'" class="count">{{ store.assets.length }}</span>
       </button>
     </nav>
-    <div class="chapters">
+    <UiScrollArea class="chapters-area" viewport-class="chapters">
       <div class="chapters-head">
         <span>Chapters</span>
         <UiIconButton :icon="Plus" label="Add chapter" size="sm" @click="dialog = { mode: 'add', value: '' }" />
@@ -193,7 +193,7 @@ function tryInReader() {
         @dragover.prevent="dropAt = items.length"
         @drop.prevent="onDrop(items.length)"
       ></div>
-    </div>
+    </UiScrollArea>
     <div class="sidebar-foot">
       <UiButton variant="ghost" size="sm" :icon="Play" title="Open the book in the real reader without building packages" @click="tryInReader">
         Try in reader

@@ -8,7 +8,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { api, errorText, type BuildReport, type CertificateInfo, type LogLine, type Target } from "../api";
 import { notify, saveConfigNow, store } from "../store";
-import { UiBadge, UiButton, UiCard, UiDialog, UiField, UiInput, UiSegmented, UiSelect, UiSwitch, type SelectOption } from "../ui";
+import { UiBadge, UiButton, UiCard, UiDialog, UiField, UiInput, UiSegmented, UiSelect, UiSwitch, type SelectOption, UiScrollArea } from "../ui";
 import AssetPicker from "./AssetPicker.vue";
 
 const b = computed(() => store.config!.build);
@@ -186,7 +186,7 @@ onBeforeUnmount(() => unlisten?.());
       {{ building ? "Building…" : "Build " + selected.length + " package" + (selected.length === 1 ? "" : "s") }}
     </UiButton>
   </header>
-  <div class="page">
+  <UiScrollArea class="page-area" viewport-class="page">
     <div class="page-inner">
       <div class="page-title">
         <div>
@@ -321,7 +321,7 @@ onBeforeUnmount(() => unlisten?.());
         </div>
       </UiCard>
     </div>
-  </div>
+  </UiScrollArea>
 
   <UiDialog v-if="newCert" title="Create a test certificate" @close="newCert = null">
     <p class="muted">A self-signed code-signing certificate, saved in Book Craft’s data folder (not in your book). It is valid for two years.</p>

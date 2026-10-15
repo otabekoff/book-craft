@@ -86,6 +86,7 @@
     reader.classList.toggle("paged", isPaged());
     reader.classList.toggle("paper", currentPaper() === "on");
     reader.classList.toggle("width-full", width === "full");
+    ["fade", "slide", "flip", "none"].forEach((t) => reader.classList.toggle("turn-" + t, currentTurn() === t));
     $("row-spread").hidden = !isPaged();
     $("row-turn").hidden = !isPaged();
     $("row-numbers").hidden = !isPaged();
@@ -141,7 +142,7 @@
     return prefs.paper || (state.book.reader.paperLook ? "on" : "off");
   }
   function currentTurn() {
-    return prefs.turn || state.book.reader.pageTurn || "slide";
+    return prefs.turn || state.book.reader.pageTurn || "fade";
   }
   function currentNumbers() {
     return prefs.numbers || (state.book.reader.pageNumbers === false ? "off" : "on");
@@ -327,6 +328,7 @@
         paginate();
         setRatio(atEnd ? 1 : ratio, false);
         settlePages(i, atEnd ? 1 : ratio);
+        if (currentTurn() === "fade" && !reducedMotion.matches) article.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: "ease-out" });
       } else if (ratio) {
         requestAnimationFrame(() => setRatio(ratio));
       }
@@ -446,12 +448,40 @@
     const from = pager.page;
     pager.page = Math.max(0, Math.min(pager.pages - 1, page || 0));
     endCurl();
-    article.classList.toggle("turning", !!animate && !reducedMotion.matches && currentTurn() === "slide" && pager.page !== from);
+    const moved = !!animate && !reducedMotion.matches && pager.page !== from;
+    if (moved && currentTurn() === "fade") crossfade(spreadCopy(from));
+    article.classList.toggle("turning", moved && currentTurn() === "slide");
     article.style.transform = "translateX(" + -pager.page * pager.step + "px)";
     renderPageNumbers();
     updateProgress();
     clearTimeout(state.saveTimer);
     state.saveTimer = setTimeout(saveNow, 400);
+  }
+  /** Copies of a whole spread over the chapter, used to fade from it. */
+  function spreadCopy(page) {
+    const frame = $("page-frame");
+    const layer = document.createElement("div");
+    layer.className = "curl-layer";
+    layer.setAttribute("aria-hidden", "true");
+    layer.style.cssText = "left:" + frame.offsetLeft + "px;top:" + frame.offsetTop + "px;width:" + pager.fw + "px;height:" + pager.fh + "px";
+    if (pager.n === 2) {
+      const spine = pager.padX + pager.pw + pager.gap / 2;
+      const right = pageSheet(page * 2 + 1, pager.fw - spine, pager.gap / 2);
+      right.style.left = spine + "px";
+      layer.append(pageSheet(page * 2, spine, pager.padX), right);
+    } else layer.appendChild(pageSheet(page, pager.fw, pager.padX));
+    return layer;
+  }
+  let fading = null;
+  function crossfade(layer) {
+    if (fading) fading.remove();
+    fading = layer;
+    $("scroller").appendChild(layer);
+    const anim = layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: "ease-out" });
+    anim.finished.then(
+      () => layer.remove(),
+      () => layer.remove()
+    );
   }
   /** A number under each page, like a printed book. */
   function renderPageNumbers() {
@@ -843,10 +873,6 @@
     // Drag to turn: grab a page edge or the desk with a mouse (the text stays selectable), or drag
     // anywhere with a finger or pen. With Flip the page curls under the pointer.
     let drag = null;
-    const toSheet = (c, x, y) => {
-      const r = $("page-frame").getBoundingClientRect();
-      return [x - r.left - (pager.fw - c.W), y - r.top];
-    };
     scroller.addEventListener("pointerdown", (e) => {
       if (!isPaged() || e.button !== 0 || e.target.closest(INTERACTIVE)) return;
       const side = sideOf(e.target, e.clientX);
@@ -877,8 +903,13 @@
         } else endCurl();
       }
       if (drag.curl) {
-        const [x, y] = toSheet(drag.curl, e.clientX, e.clientY);
-        curlTo(drag.curl, x, y);
+        // The corner starts where the page lies (right edge, or the left page's outer edge when
+        // turning back) and moves with the pointer, lifting a little as it crosses, like paper does.
+        const c = drag.curl;
+        const startX = c.dir > 0 ? c.W : -c.W;
+        const progress = Math.min(1, Math.abs(dx) / (2 * c.W));
+        const lift = (c.cy === 0 ? 1 : -1) * c.H * 0.1 * Math.sin(Math.PI * progress);
+        curlTo(c, startX + dx, c.cy + dy + lift);
       } else if (currentTurn() === "slide") {
         // Follow the pointer, with resistance where there is no page to go to.
         const atStart = pager.page === 0 && state.chapter === 0;

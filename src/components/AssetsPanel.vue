@@ -4,7 +4,7 @@ import { BookImage, ClipboardCopy, FileText, Plus, Trash, Type, AppWindow } from
 import { open } from "@tauri-apps/plugin-dialog";
 import { api, ASSET_BASE, errorText, type AssetInfo } from "../api";
 import { loadAssets, notify, store } from "../store";
-import { UiButton, UiIconButton, UiSegmented } from "../ui";
+import { UiButton, UiIconButton, UiSegmented, UiScrollArea } from "../ui";
 
 const filter = ref("all");
 const kindOptions = ["all", "image", "audio", "video", "font", "pdf", "file"].map((k) => ({
@@ -86,7 +86,7 @@ function useAs(a: AssetInfo, field: "icon" | "cover") {
     <span class="spacer"></span>
     <UiButton variant="primary" :icon="Plus" @click="importFiles">Add files…</UiButton>
   </header>
-  <div class="page">
+  <UiScrollArea class="page-area" viewport-class="page">
     <div class="page-inner">
       <div class="page-title">
         <div>
@@ -121,7 +121,7 @@ function useAs(a: AssetInfo, field: "icon" | "cover") {
         </article>
       </div>
     </div>
-  </div>
+  </UiScrollArea>
 </template>
 
 <style scoped>

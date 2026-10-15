@@ -5,7 +5,7 @@ import {
   Sigma, StickyNote, Workflow,
 } from "@lucide/vue";
 import { store } from "../store";
-import { UiCard, UiField, UiSelect, UiSwitch, type SelectOption } from "../ui";
+import { UiCard, UiField, UiSelect, UiSwitch, type SelectOption, UiScrollArea } from "../ui";
 
 const m = computed(() => store.config!.modules);
 const themes = computed<SelectOption<string>[]>(() => (store.info?.codeThemes ?? []).map((t) => ({ value: t, label: t })));
@@ -33,7 +33,7 @@ const quoteStyles: SelectOption<string>[] = [
 
 <template>
   <header class="topbar"><h1>Blocks &amp; features</h1><span class="spacer"></span><span class="status">{{ store.saving ? "Saving…" : "Saved automatically" }}</span></header>
-  <div class="page">
+  <UiScrollArea class="page-area" viewport-class="page">
     <div class="page-inner">
       <div class="page-title">
         <div>
@@ -86,7 +86,7 @@ const quoteStyles: SelectOption<string>[] = [
       </UiCard>
       <p class="foot"><AppWindow class="f-ico" aria-hidden="true" /> Changes apply to the preview immediately and to the app on the next build.</p>
     </div>
-  </div>
+  </UiScrollArea>
 </template>
 
 <style scoped>

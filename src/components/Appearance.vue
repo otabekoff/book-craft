@@ -3,7 +3,7 @@ import { computed, onMounted } from "vue";
 import { BookOpenText, CaseSensitive, Type } from "@lucide/vue";
 import { useFontPreviews } from "../fonts";
 import { store } from "../store";
-import { UiBadge, UiCard, UiCheckbox, UiField, UiInput, UiRange, UiSegmented, UiSelect, UiSwitch, type SelectOption } from "../ui";
+import { UiBadge, UiCard, UiCheckbox, UiField, UiInput, UiRange, UiSegmented, UiSelect, UiSwitch, type SelectOption, UiScrollArea } from "../ui";
 import AssetPicker from "./AssetPicker.vue";
 import FontPicker from "./FontPicker.vue";
 
@@ -38,6 +38,7 @@ const spreadOptions = [
   { value: "two", label: "Two" },
 ];
 const turnOptions = [
+  { value: "fade", label: "Fade" },
   { value: "slide", label: "Slide" },
   { value: "flip", label: "Flip" },
   { value: "none", label: "Instant" },
@@ -77,7 +78,7 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
 
 <template>
   <header class="topbar"><h1>Appearance</h1><span class="spacer"></span><span class="status">{{ store.saving ? "Saving…" : "Saved automatically" }}</span></header>
-  <div class="page">
+  <UiScrollArea class="page-area" viewport-class="page">
     <div class="page-inner">
       <div class="page-title">
         <div>
@@ -208,7 +209,7 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
         </UiField>
       </UiCard>
     </div>
-  </div>
+  </UiScrollArea>
 </template>
 
 <style scoped>

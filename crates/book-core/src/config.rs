@@ -181,7 +181,7 @@ pub struct ReaderSettings {
     pub page_spread: String,
     /// Show the text on a paper sheet over a darker desk.
     pub paper_look: bool,
-    /// How pages turn in page mode: `slide`, `flip` (like a real book) or `none`.
+    /// How pages turn in page mode: `fade`, `slide`, `flip` (a page curl, like a real book) or `none`.
     pub page_turn: String,
     /// Show a number under each page in page mode.
     pub page_numbers: bool,
@@ -214,7 +214,7 @@ impl Default for ReaderSettings {
             default_layout: "scroll".into(),
             page_spread: "auto".into(),
             paper_look: false,
-            page_turn: "slide".into(),
+            page_turn: "fade".into(),
             page_numbers: true,
             default_width: "normal".into(),
         }

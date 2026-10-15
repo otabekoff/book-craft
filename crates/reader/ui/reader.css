@@ -397,8 +397,10 @@ html[data-theme="dark"] .reader.paged.paper.spread-2 .page-frame::before { backg
 
 /* ------------------------------------------------------------ page turning: drag and flip */
 
-.reader.paged .scroller { position: relative; cursor: grab; touch-action: pan-y pinch-zoom; }
-.reader.paged .page-frame { cursor: grab; }
+.reader.paged .scroller { position: relative; touch-action: pan-y pinch-zoom; }
+/* A grab hand only where dragging moves the page (Slide and Flip); a pointer where a click turns. */
+.reader.paged.turn-slide .scroller, .reader.paged.turn-slide .page-frame,
+.reader.paged.turn-flip .scroller, .reader.paged.turn-flip .page-frame { cursor: grab; }
 .reader.paged .bc-chapter { cursor: auto; }
 .reader.dragging, .reader.dragging * { cursor: grabbing !important; user-select: none !important; }
 
@@ -416,7 +418,8 @@ html[data-theme="dark"] .reader.paged.paper.spread-2 .page-frame::before { backg
 }
 
 /* Grips along the outer page edges: grab to curl the page, click to turn. */
-.reader.paged .grip { display: block; position: absolute; top: 0; bottom: 0; width: 72px; z-index: 3; cursor: grab; touch-action: none; }
+.reader.paged .grip { display: block; position: absolute; top: 0; bottom: 0; width: 72px; z-index: 3; cursor: pointer; touch-action: none; }
+.reader.paged.turn-slide .grip, .reader.paged.turn-flip .grip { cursor: grab; }
 .reader.paged .grip-prev { left: 0; }
 .reader.paged .grip-next { right: 0; }
 
@@ -436,3 +439,10 @@ html[data-theme="dark"] .curl-flap { filter: drop-shadow(0 0 12px rgb(0 0 0 / 0.
 .curl-bend { background: linear-gradient(to left, rgb(0 0 0 / 0.14), transparent); }
 .curl-gloss { background: linear-gradient(to right, rgb(0 0 0 / 0.16), rgb(255 255 255 / 0.06) 35%, transparent); }
 html[data-theme="dark"] .curl-cast { background: linear-gradient(to right, rgb(0 0 0 / 0.55), transparent); }
+
+/* Scrollbars for the reader's own lists and pages: slim, rounded, in the book's theme. */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--bc-ink) 22%, transparent); border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; min-height: 28px; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--bc-ink) 38%, transparent); }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
