@@ -33,6 +33,12 @@ const CALLOUTS: &[(&str, &str)] = &[
 /// Numbered callouts get "Theorem 3" style titles via CSS counters.
 const NUMBERED: &[&str] = &["theorem", "lemma", "corollary", "proposition", "definition", "example"];
 
+/// Collapsible blocks (collapsible callouts, details, spoilers, hints, solutions) start
+/// collapsed unless the author writes `collapsed=false` or `open`.
+fn starts_open(info: &Info) -> bool {
+    info.flag("open") || !info.flag_or("collapsed", true)
+}
+
 /// Returns the opening and closing HTML that wrap a directive's rendered children.
 pub fn directive(raw_info: &str, ctx: &mut Ctx) -> (String, String) {
     let info = attrs::parse(raw_info);
@@ -73,8 +79,9 @@ pub fn directive(raw_info: &str, ctx: &mut Ctx) -> (String, String) {
                 extra
             );
             let style = color_style(&info);
-            if info.flag("collapsible") || info.flag("collapsed") {
-                let open = if info.flag("collapsed") { "" } else { " open" };
+            // Collapsible callouts start collapsed; `collapsed=false` (or `open`) starts them open.
+            if info.flag("collapsible") || info.get("collapsed").is_some() {
+                let open = if starts_open(&info) { " open" } else { "" };
                 return (
                     format!(
                         r#"<details class="{cls}"{id}{style}{open}><summary class="bc-callout-title"><span class="bc-callout-icon" aria-hidden="true"></span>{title_html}</summary><div class="bc-callout-body">"#
@@ -217,7 +224,7 @@ pub fn directive(raw_info: &str, ctx: &mut Ctx) -> (String, String) {
             let summary = title_text
                 .or_else(|| info.get("summary").map(str::to_string))
                 .unwrap_or_else(|| if name == "spoiler" { "Show spoiler".into() } else { "Details".into() });
-            let open = if info.flag("open") { " open" } else { "" };
+            let open = if starts_open(&info) { " open" } else { "" };
             (
                 format!(
                     r#"<details class="bc-details bc-details-{name}{extra}"{id}{open}><summary>{}</summary><div class="bc-details-body">"#,
@@ -352,9 +359,10 @@ pub fn directive(raw_info: &str, ctx: &mut Ctx) -> (String, String) {
                 "answer" => "Show answer".into(),
                 _ => "Show solution".into(),
             });
+            let open = if starts_open(&info) { " open" } else { "" };
             (
                 format!(
-                    r#"<details class="bc-solution bc-{name}{extra}"{id}><summary>{}</summary><div class="bc-solution-body">"#,
+                    r#"<details class="bc-solution bc-{name}{extra}"{id}{open}><summary>{}</summary><div class="bc-solution-body">"#,
                     escape(&label)
                 ),
                 "</div></details>\n".into(),

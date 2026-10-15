@@ -1989,6 +1989,12 @@
 
   /* ---------------------------------------------------------------- start */
 
+  // No browser menu (Back, Reload, Inspect…) on right-click; selecting text shows the book's
+  // own menu instead. The search box keeps its cut/copy/paste menu.
+  document.addEventListener("contextmenu", (e) => {
+    if (!(e.target.closest && e.target.closest("input, textarea"))) e.preventDefault();
+  });
+
   async function start() {
     try {
       const res = await fetch("/book.json");

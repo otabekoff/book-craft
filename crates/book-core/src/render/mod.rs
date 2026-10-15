@@ -334,6 +334,15 @@ mod tests {
     }
 
     #[test]
+    fn collapsible_blocks_start_collapsed() {
+        let closed = render("::: note {collapsible=true}\nHidden\n:::\n\n::: details\nMore\n:::\n");
+        assert!(closed.html.contains("<details class=\"bc-callout"), "{}", closed.html);
+        assert!(!closed.html.contains(" open>"), "{}", closed.html);
+        let open = render("::: note {collapsible=true collapsed=false}\nShown\n:::\n\n::: details {open}\nMore\n:::\n");
+        assert_eq!(open.html.matches(" open>").count(), 2, "{}", open.html);
+    }
+
+    #[test]
     fn quote_with_attribution() {
         let r = render("::: quote {style=pull author=\"Ada Lovelace\" source=\"Notes\"}\nImagination is the discovering faculty.\n:::\n");
         assert!(r.html.contains("bc-quote bc-quote-pull"));

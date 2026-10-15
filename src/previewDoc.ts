@@ -36,6 +36,8 @@ function render(html, cls, theme) {
   if (window.BookBlocks) BookBlocks.hydrate(a, { vendor, theme: document.documentElement.dataset.theme });
   scrollTo(0, y);
 }
+// No browser menu on right-click in the preview.
+addEventListener("contextmenu", (e) => e.preventDefault());
 addEventListener("message", (e) => {
   if (e.source !== parent) return;
   const d = e.data || {};

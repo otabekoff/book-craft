@@ -139,7 +139,7 @@ Chapters are Markdown with GitHub extensions (tables, task lists, footnotes, str
 
 | Family | Syntax |
 |---|---|
-| Callouts | `::: note`, `tip`, `info`, `warning`, `danger`, `important`, `success`, `question`, `example`, `summary`, `keypoints`, `objectives`, `history` — `{title="…" collapsible=true color=teal}` |
+| Callouts | `::: note`, `tip`, `info`, `warning`, `danger`, `important`, `success`, `question`, `example`, `summary`, `keypoints`, `objectives`, `history` — `{title="…" collapsible=true color=teal}` (collapsible callouts, details, spoilers, hints and solutions start collapsed; add `collapsed=false` or `open` to start them open) |
 | Theorem-style | `::: theorem`, `lemma`, `corollary`, `proposition`, `definition`, `proof`, `remark` (auto-numbered) |
 | Quotes | `::: quote {style=classic\|pull\|card\|big\|line\|shaded\|minimal author= source= role=}`, `::: epigraph` |
 | Boxes & shapes | `::: box {style=framed\|shaded\|tinted\|filled\|outline\|dashed\|double\|card\|note shape=rounded\|square\|pill\|circle\|cut\|ticket color= width= align= float=}` |
