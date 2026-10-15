@@ -16,6 +16,13 @@ html, body { margin: 0; background: var(--bc-paper); color: var(--bc-ink); }
 html, body { overscroll-behavior: none; }
 body { padding: 40px 28px 120px; }
 .empty { font-family: var(--bc-font-ui); color: var(--bc-muted); text-align: center; margin-top: 30vh; }
+/* The page's own scrollbar is hidden; a slim overlay one (below) takes no space, like the studio's. */
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
+.bc-ov { position: fixed; top: 2px; bottom: 2px; right: 1px; width: 12px; z-index: 50; opacity: 0; transition: opacity 0.25s; }
+.bc-ov.on, .bc-ov:hover, .bc-ov.drag { opacity: 1; }
+.bc-ov-thumb { position: absolute; top: 0; right: 2px; width: 6px; border-radius: 999px; background: color-mix(in srgb, var(--bc-ink) 26%, transparent); transition: width 0.15s, background 0.15s; }
+.bc-ov:hover .bc-ov-thumb, .bc-ov.drag .bc-ov-thumb { width: 8px; background: color-mix(in srgb, var(--bc-ink) 42%, transparent); }
 </style>
 </head>
 <body>
@@ -62,6 +69,57 @@ document.addEventListener("click", (e) => {
     if (t) t.scrollIntoView({ behavior: "smooth" });
   }
 });
+// Overlay scrollbar: shows while scrolling or near the right edge; drag the thumb, click the track to page.
+(function () {
+  const bar = document.createElement("div");
+  bar.className = "bc-ov";
+  const thumb = document.createElement("div");
+  thumb.className = "bc-ov-thumb";
+  bar.appendChild(thumb);
+  document.body.appendChild(bar);
+  const se = document.scrollingElement;
+  let timer = 0;
+  function measure() {
+    const view = innerHeight, full = se.scrollHeight, track = view - 4;
+    if (full <= view + 1) { bar.style.display = "none"; return; }
+    bar.style.display = "";
+    const size = Math.max(28, (track * view) / full);
+    thumb.style.height = size + "px";
+    thumb.style.transform = "translateY(" + ((track - size) * se.scrollTop) / (full - view) + "px)";
+  }
+  function wake() {
+    bar.classList.add("on");
+    clearTimeout(timer);
+    timer = setTimeout(() => bar.classList.remove("on"), 900);
+  }
+  addEventListener("scroll", () => { measure(); wake(); }, { passive: true });
+  addEventListener("resize", measure);
+  new ResizeObserver(measure).observe(document.body);
+  document.addEventListener("mousemove", (e) => { if (innerWidth - e.clientX < 28) wake(); });
+  thumb.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    thumb.setPointerCapture(e.pointerId);
+    bar.classList.add("drag");
+    const y0 = e.clientY, s0 = se.scrollTop;
+    const ratio = (se.scrollHeight - innerHeight) / Math.max(1, innerHeight - 4 - thumb.offsetHeight);
+    const move = (ev) => { se.scrollTop = s0 + (ev.clientY - y0) * ratio; };
+    const up = () => {
+      bar.classList.remove("drag");
+      thumb.removeEventListener("pointermove", move);
+      thumb.removeEventListener("pointerup", up);
+      thumb.removeEventListener("pointercancel", up);
+    };
+    thumb.addEventListener("pointermove", move);
+    thumb.addEventListener("pointerup", up);
+    thumb.addEventListener("pointercancel", up);
+  });
+  bar.addEventListener("pointerdown", (e) => {
+    if (e.target !== bar) return;
+    const r = thumb.getBoundingClientRect();
+    scrollBy({ top: (e.clientY < r.top ? -1 : 1) * innerHeight * 0.9, behavior: "smooth" });
+  });
+  measure();
+})();
 parent.postMessage({ type: "ready" }, "*");
 <\/script>
 </body>
