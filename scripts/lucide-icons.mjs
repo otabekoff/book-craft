@@ -13,7 +13,7 @@ const READER = [
   "menu", "book-open", "search", "bookmark", "bookmark-plus", "a-large-small", "info", "x", "chevron-left",
   "arrow-left", "arrow-right", "trash", "sun", "moon", "monitor", "coffee", "house", "minus", "square", "copy",
   "check", "type", "list-tree", "rotate-ccw", "maximize", "minimize", "focus", "scroll-text", "book-open-text",
-  "chevron-right", "keyboard", "clock", "languages", "list",
+  "chevron-right", "keyboard", "clock", "languages", "list", "book-bookmark", "folder-output",
 ];
 
 // Block name → Lucide icon.

@@ -239,6 +239,14 @@
     target.append(top, bottom);
   }
 
+  /** Unnumbered entries show what they are (front matter, part, back matter) instead of a number. */
+  const KIND_MARKS = { front: ["book-open", "Front matter"], part: ["book-bookmark", "Part"], back: ["folder-output", "Back matter"] };
+  function kindMark(kind) {
+    const [name, label] = KIND_MARKS[kind] || ["book-open", ""];
+    const span = el("span", { class: "num kind-mark", title: label || null, "aria-label": label || null, role: label ? "img" : null });
+    span.innerHTML = (window.ReaderIcons || {})[name] || "";
+    return span;
+  }
   function icon(name) {
     const span = el("span", { "data-icon": name, "aria-hidden": "true" });
     span.innerHTML = (window.ReaderIcons || {})[name] || "";
@@ -304,7 +312,7 @@
       const status = started ? (i < pos.chapter ? "done" : i === pos.chapter ? "current" : "") : "";
       const a = el("a", { href: "#read/" + i, class: "toc-card" + (status ? " " + status : "") });
       const num = chapterNumberLabel(i);
-      a.appendChild(el("span", { class: "num" }, num ? num.padStart(2, "0") : "•"));
+      a.appendChild(num ? el("span", { class: "num" }, num.padStart(2, "0")) : kindMark(c.kind));
       const body = el("span", { class: "body" });
       body.appendChild(el("span", { class: "t" }, c.title));
       const metaLine = el("span", { class: "m" });
@@ -338,7 +346,8 @@
     state.book.chapters.forEach((c, i) => {
       const li = el("li", { class: "kind-" + (c.kind || "chapter") });
       const a = el("a", { href: "#read/" + i, "data-index": i });
-      a.appendChild(el("span", { class: "num" }, chapterNumberLabel(i)));
+      const label = chapterNumberLabel(i);
+      a.appendChild(label ? el("span", { class: "num" }, label) : kindMark(c.kind));
       a.appendChild(el("span", null, c.title));
       li.appendChild(a);
       list.appendChild(li);

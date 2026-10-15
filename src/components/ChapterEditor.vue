@@ -18,7 +18,7 @@ import {
   Bold, ChevronDown, Code, Columns2, Eye, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Pilcrow, Highlighter, Image as ImageIcon, ImageUp, Italic, Link,
   List, ListOrdered, ListTree, Moon, PenLine, Plus, Quote, Search, Strikethrough, Sun, SunMoon, Coffee, Table, TriangleAlert, X,
 } from "@lucide/vue";
-import { UiButton, UiIconButton, UiInput, UiMenu, UiSegmented, type MenuItem } from "../ui";
+import { UiButton, UiIconButton, UiInput, UiMenu, UiScrollArea, UiSegmented, type MenuItem } from "../ui";
 import { appTheme } from "../appTheme";
 
 const layoutOptions = [
@@ -481,7 +481,7 @@ const statusText = computed(
         <UiInput v-model="insertFilter" :icon="Search" placeholder="Find a block — quote, chart, quiz…" autofocus aria-label="Find a block" />
         <UiIconButton :icon="X" label="Close" @click="insertOpen = false" />
       </div>
-      <div class="insert-groups">
+      <UiScrollArea class="insert-scroll" viewport-class="insert-groups">
         <section v-for="g in filteredGroups" :key="g.name">
           <h4>{{ g.name }}</h4>
           <button
@@ -494,7 +494,7 @@ const statusText = computed(
             @click="insertBlock(item)"
           >{{ item.label }}</button>
         </section>
-      </div>
+      </UiScrollArea>
     </div>
 
     <div v-if="imagePicker" class="insert-panel image-panel">
@@ -540,7 +540,9 @@ const statusText = computed(
 .insert-head :deep(.ui-input) { flex: 1; }
 .insert-head .spacer { flex: 1; }
 /* Groups are small cards packed into columns, with room between them and around the edges. */
-.insert-groups { overflow-y: auto; overscroll-behavior: none; padding: 18px; columns: 4 220px; column-gap: 16px; }
+/* Overlay scrollbar, so the right margin matches the left. */
+.insert-scroll { flex: 1; min-height: 0; }
+.insert-scroll :deep(.insert-groups) { padding: 18px; columns: 4 220px; column-gap: 16px; }
 .insert-groups section { break-inside: avoid; margin-bottom: 16px; padding: 10px 8px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
 .insert-groups h4 { margin: 2px 8px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .insert-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 10px; margin: 1px 0; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--ink); }

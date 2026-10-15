@@ -140,6 +140,7 @@ textarea.input { min-height: 80px; resize: vertical; line-height: 1.45; }
 .nav .dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
 .chapters-area { flex: 1; }
 .chapters { padding: 8px; }
+.chapters > .ui-scroll-content { display: flex; flex-direction: column; gap: 3px; }
 .chapters-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
 .chapter-item { display: flex; align-items: center; gap: 6px; border-radius: 8px; padding: 2px 4px 2px 8px; cursor: pointer; min-height: 38px; position: relative; }
 .chapter-item:hover { background: var(--panel-2); }

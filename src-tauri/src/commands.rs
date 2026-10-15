@@ -59,6 +59,36 @@ pub fn save_settings(state: State<AppState>, settings: StudioSettings) -> AppInf
     app_info(state)
 }
 
+/// Forgets a book in the recent list (the folder is left alone).
+#[tauri::command]
+pub fn recent_remove(state: State<AppState>, path: String) -> AppInfo {
+    state.settings.lock().unwrap().recent.retain(|p| p != &path);
+    state.save_settings();
+    app_info(state)
+}
+
+/// Moves a book folder to the Recycle Bin (restorable from there) and forgets it.
+/// Only folders that are books (they hold book.json or book.toml) and are not open.
+#[tauri::command]
+pub fn project_trash(state: State<AppState>, path: String) -> R<AppInfo> {
+    let dir = PathBuf::from(&path);
+    if !dir.is_dir() {
+        return Err(format!("{path} is not a folder"));
+    }
+    if !dir.join("book.json").is_file() && !dir.join("book.toml").is_file() {
+        return Err(format!("{path} is not a book folder (it has no book.json or book.toml), so it was left alone."));
+    }
+    if let Some(open) = state.project.lock().unwrap().as_ref() {
+        if open.root == dir {
+            return Err("Close the book before deleting it.".into());
+        }
+    }
+    trash::delete(&dir).map_err(|e| format!("Could not move {path} to the Recycle Bin: {e}"))?;
+    state.settings.lock().unwrap().recent.retain(|p| p != &path);
+    state.save_settings();
+    Ok(app_info(state))
+}
+
 /// Downloads a missing packaging tool into Book Craft's own tools folder
 /// (no administrator rights needed), then reports the tools again.
 #[tauri::command]

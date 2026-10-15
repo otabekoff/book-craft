@@ -24,6 +24,7 @@
     "build:app": "tauri build",
     "build:cli": "cargo build --release -p bookcraft",
     "package": "tauri build && cargo build --release -p bookcraft",
+    "build:all": "node scripts/build-all.mjs",
     "icons": "node scripts/render-icon.mjs && tauri icon src-tauri/icons/source/icon.png -o src-tauri/icons",
     "lucide-icons": "node scripts/lucide-icons.mjs"
   },

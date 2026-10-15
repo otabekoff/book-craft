@@ -37,6 +37,10 @@ export function installMock() {
   mockIPC((cmd, args: any) => {
     switch (cmd) {
       case "app_info": return info;
+      case "recent_remove":
+      case "project_trash":
+        info.settings.recent = info.settings.recent.filter((p: string) => p !== (args as { path: string }).path);
+        return info;
       case "project_open": case "project_create": case "project_save_config": case "chapter_remove": return project();
       case "chapter_read": return `# ${chapters.find((c) => c.file === args.file)?.title}\n\nSome **text** to edit.\n\n::: tip\nA callout.\n:::\n`;
       case "chapter_write": return chapters;

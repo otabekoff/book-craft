@@ -77,6 +77,7 @@ bun run test
 | `bun run build:app` | Build and package the studio: `target/release/bundle/nsis/*-setup.exe` and `bundle/msi/*.msi` |
 | `bun run build:cli` | Build the command-line builder: `target/release/bookcraft.exe` |
 | `bun run package` | `build:app` + `build:cli` |
+| `bun run build:all` | Everything in one go: resources, type check, tests, installers and CLI, then a list of what was built (`-- --skip-tests` to go faster) |
 | `bun run lucide-icons` | Regenerate the reader's and blocks' icons |
 | `bun run icons` | Regenerate the app icons |
 

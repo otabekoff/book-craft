@@ -35,6 +35,8 @@ pub fn run() {
             commands::app_info,
             commands::save_settings,
             commands::tools_install,
+            commands::recent_remove,
+            commands::project_trash,
             commands::legal_read,
             commands::legal_write,
             commands::project_create,
