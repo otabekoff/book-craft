@@ -292,6 +292,7 @@ button, select, input { font: inherit; color: inherit; }
 .seg { display: flex; align-items: center; gap: 4px; }
 .seg-text { background: var(--bc-surface-2); padding: 3px; border-radius: var(--bc-r-sm); }
 .seg-text button { border: 0; background: transparent; padding: 6px 10px; min-height: 32px; border-radius: 6px; font-size: 12px; color: var(--bc-muted); cursor: pointer; }
+.seg-text button:disabled { opacity: 0.4; cursor: not-allowed; }
 .seg-text button[aria-pressed="true"] { background: var(--bc-paper); color: var(--bc-ink); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); font-weight: 600; }
 #theme-buttons, .swatches { gap: 12px; }
 .swatch { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--bc-border-strong); cursor: pointer; padding: 0; }
@@ -461,16 +462,14 @@ html[data-theme="dark"] .reader { --rd-desk: color-mix(in srgb, var(--bc-paper) 
 .reader.paged .bc-chapter > :is(div, aside, figure, blockquote, pre, details, table),
 .reader.paged .bc-chapter :is(img, .bc-code, tr, li, .katex-display, .mermaid) { break-inside: avoid; }
 .reader.paged .bc-chapter :is(h1, h2, h3, h4, h5, h6) { break-after: avoid; break-inside: avoid; }
-.reader.paged.spread-2 .page-frame::before {
+/* Plain pages: the line between two pages is a column rule, so it moves with them when they slide. */
+.reader.paged.spread-2:not(.paper) .scroller .bc-chapter { column-rule: 1px solid var(--bc-border); }
+.reader.paged.paper .page-frame { background: var(--bc-paper); border-radius: 4px; box-shadow: var(--rd-sheet-shadow); }
+/* Paper: a soft gutter shadow down the middle of the sheet (paper does not slide). */
+.reader.paged.paper.spread-2 .page-frame::before {
   content: "";
   position: absolute;
   left: 50%;
-  top: 44px;
-  bottom: 52px;
-  border-left: 1px solid var(--bc-border);
-}
-.reader.paged.paper .page-frame { background: var(--bc-paper); border-radius: 4px; box-shadow: var(--rd-sheet-shadow); }
-.reader.paged.paper.spread-2 .page-frame::before {
   top: 0;
   bottom: 0;
   width: 56px;

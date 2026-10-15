@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, watch } from "vue";
 import { BookOpenText, CaseSensitive, Type } from "@lucide/vue";
 import { useFontPreviews } from "../fonts";
 import { store } from "../store";
@@ -37,12 +37,19 @@ const spreadOptions = [
   { value: "one", label: "One" },
   { value: "two", label: "Two" },
 ];
-const turnOptions = [
+// A paper sheet does not slide, so Slide is off while the paper look is on.
+const turnOptions = computed(() => [
   { value: "fade", label: "Fade" },
-  { value: "slide", label: "Slide" },
+  { value: "slide", label: "Slide", disabled: r.value.paperLook, title: r.value.paperLook ? "Not available with the paper look" : undefined },
   { value: "flip", label: "Flip" },
   { value: "none", label: "Instant" },
-];
+]);
+watch(
+  () => r.value.paperLook,
+  (paper) => {
+    if (paper && r.value.pageTurn === "slide") r.value.pageTurn = "fade";
+  },
+);
 const widthOptions = [
   { value: "narrow", label: "Narrow" },
   { value: "normal", label: "Normal" },
@@ -130,7 +137,7 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
           <UiField label="Line spacing">
             <UiRange v-model="t.lineHeight" :min="1.3" :max="2.1" :step="0.05" aria-label="Line spacing" :format="(v) => v.toFixed(2)" />
           </UiField>
-          <UiField label="Page turn" hint="Flip curls the page like a real book; readers can drag its corner.">
+          <UiField label="Page turn" hint="Flip curls the page like a real book; readers can drag its corner. Slide is not available with the paper look.">
             <UiSegmented v-model="r.pageTurn" :options="turnOptions" aria-label="Page turn" />
           </UiField>
           <UiField label="Text width">

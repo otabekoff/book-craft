@@ -26,8 +26,10 @@ export default defineConfig(() => ({
         }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // 3. Only the studio UI is watched. Rust code and its build output (`target/`) change
+      //    and get locked while cargo builds; watching them made Vite crash with EBUSY and
+      //    take `tauri dev` down with it.
+      ignored: ["**/src-tauri/**", "**/target/**", "**/crates/**", "**/dist/**", "**/.git/**"],
     },
   },
 }));

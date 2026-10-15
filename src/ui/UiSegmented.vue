@@ -3,17 +3,18 @@
 import type { Component } from "vue";
 
 defineProps<{
-  options: { value: T; label?: string; icon?: Component; title?: string }[];
+  options: { value: T; label?: string; icon?: Component; title?: string; disabled?: boolean }[];
   ariaLabel?: string;
   size?: "sm" | "md";
 }>();
 const model = defineModel<T>();
 
-function key(e: KeyboardEvent, options: { value: T }[], i: number) {
+function key(e: KeyboardEvent, options: { value: T; disabled?: boolean }[], i: number) {
   const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
   if (!d) return;
   e.preventDefault();
-  const next = (i + d + options.length) % options.length;
+  let next = (i + d + options.length) % options.length;
+  while (options[next].disabled && next !== i) next = (next + d + options.length) % options.length;
   model.value = options[next].value;
   ((e.currentTarget as HTMLElement).parentElement?.children[next] as HTMLElement)?.focus();
 }
@@ -30,6 +31,7 @@ function key(e: KeyboardEvent, options: { value: T }[], i: number) {
       :tabindex="model === o.value ? 0 : -1"
       :title="o.title ?? o.label"
       :aria-label="o.label ? undefined : o.title"
+      :disabled="o.disabled"
       @click="model = o.value"
       @keydown="key($event, options, i)"
     >
@@ -45,5 +47,7 @@ button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; 
 button:hover { color: var(--ink); }
 button[aria-checked="true"] { background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.14); }
 .s-sm button { min-height: 26px; padding: 0 8px; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:disabled:hover { color: var(--muted); }
 .ico { width: 16px; height: 16px; }
 </style>

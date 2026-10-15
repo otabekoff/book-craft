@@ -103,6 +103,9 @@
     document.querySelectorAll("[data-spread]").forEach((b) => b.setAttribute("aria-pressed", String(currentSpread() === b.dataset.spread)));
     document.querySelectorAll("[data-paper]").forEach((b) => b.setAttribute("aria-pressed", String(currentPaper() === b.dataset.paper)));
     document.querySelectorAll("[data-turn]").forEach((b) => b.setAttribute("aria-pressed", String(currentTurn() === b.dataset.turn)));
+    const slide = document.querySelector('[data-turn="slide"]');
+    slide.disabled = currentPaper() === "on";
+    slide.title = slide.disabled ? "Not available with the paper look" : "";
     document.querySelectorAll("[data-numbers]").forEach((b) => b.setAttribute("aria-pressed", String(currentNumbers() === b.dataset.numbers)));
     document.querySelectorAll("[data-arrows]").forEach((b) => b.setAttribute("aria-pressed", String(currentArrows() === b.dataset.arrows)));
     $("size-value").textContent = currentSize() + " px";
@@ -146,7 +149,9 @@
     return prefs.paper || (state.book.reader.paperLook ? "on" : "off");
   }
   function currentTurn() {
-    return prefs.turn || state.book.reader.pageTurn || "fade";
+    const turn = prefs.turn || state.book.reader.pageTurn || "fade";
+    // A paper sheet does not slide; it fades instead.
+    return turn === "slide" && currentPaper() === "on" ? "fade" : turn;
   }
   function currentArrows() {
     return prefs.arrows || (state.book.reader.pageArrows === false ? "off" : "on");
@@ -540,7 +545,9 @@
       const spine = pager.padX + pager.pw + pager.gap / 2;
       const right = pageSheet(page * 2 + 1, pager.fw - spine, pager.gap / 2);
       right.style.left = spine + "px";
-      layer.append(pageSheet(page * 2, spine, pager.padX), right);
+      const line = el("div", { class: "curl-spine", "aria-hidden": "true" });
+      line.style.left = spine + "px";
+      layer.append(pageSheet(page * 2, spine, pager.padX), right, line);
     } else layer.appendChild(pageSheet(page, pager.fw, pager.padX));
     return layer;
   }
