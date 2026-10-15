@@ -13,9 +13,10 @@ import { previewDocument } from "../previewDoc";
 import { loadAssets, notify, onFlush, store } from "../store";
 import {
   Bold, Code, Columns2, Eye, Heading1, Heading2, Heading3, Highlighter, Image as ImageIcon, ImageUp, Italic, Link,
-  List, ListOrdered, ListTree, Moon, PenLine, Plus, Quote, Search, Strikethrough, Sun, Coffee, Table, TriangleAlert, X,
+  List, ListOrdered, ListTree, Moon, PenLine, Plus, Quote, Search, Strikethrough, Sun, SunMoon, Coffee, Table, TriangleAlert, X,
 } from "@lucide/vue";
 import { UiButton, UiIconButton, UiInput, UiSegmented } from "../ui";
+import { appTheme } from "../appTheme";
 
 const layoutOptions = [
   { value: "editor" as const, icon: PenLine, title: "Editor only" },
@@ -23,6 +24,7 @@ const layoutOptions = [
   { value: "preview" as const, icon: Eye, title: "Preview only" },
 ];
 const themeOptions = [
+  { value: "auto", icon: SunMoon, title: "Match the app" },
   { value: "light", icon: Sun, title: "Light" },
   { value: "sepia", icon: Coffee, title: "Sepia" },
   { value: "dark", icon: Moon, title: "Dark" },
@@ -37,7 +39,9 @@ const words = ref(0);
 const warnings = ref<string[]>([]);
 const headings = ref<Heading[]>([]);
 const layout = ref<"split" | "editor" | "preview">((localStorage.getItem("bc.layout") as any) || "split");
-const previewTheme = ref(localStorage.getItem("bc.previewTheme") || "light");
+// "auto" follows the studio's own light/dark theme.
+const previewTheme = ref(localStorage.getItem("bc.previewTheme") || "auto");
+const effectiveTheme = computed(() => (previewTheme.value === "auto" ? appTheme.value : previewTheme.value));
 const insertOpen = ref(false);
 const insertFilter = ref("");
 const outlineOpen = ref(false);
@@ -294,7 +298,7 @@ async function renderNow() {
     warnings.value = r.warnings;
     headings.value = r.headings.filter((h) => h.level <= 3);
     lastHtml.value = { html: r.html, cls: r.chapterClass };
-    if (frameReady.value) post({ type: "render", html: r.html, cls: r.chapterClass });
+    if (frameReady.value) post({ type: "render", html: r.html, cls: r.chapterClass, theme: effectiveTheme.value });
   } catch (e) {
     warnings.value = [errorText(e)];
   }
@@ -311,21 +315,23 @@ function onMessage(e: MessageEvent) {
   if (!frame.value || e.source !== frame.value.contentWindow) return;
   if (e.data?.type === "ready") {
     frameReady.value = true;
-    post({ type: "render", ...lastHtml.value });
+    // The theme travels with every render, so a change made while the frame reloaded is not lost.
+    post({ type: "render", ...lastHtml.value, theme: effectiveTheme.value });
   }
 }
 
 const srcdoc = ref("");
 function reloadFrame() {
   frameReady.value = false;
-  srcdoc.value = previewDocument(previewTheme.value, store.configVersion);
+  srcdoc.value = previewDocument(effectiveTheme.value, store.configVersion);
 }
 
 function setPreviewTheme(t: string) {
   previewTheme.value = t;
   localStorage.setItem("bc.previewTheme", t);
-  post({ type: "theme", theme: t });
 }
+
+watch(effectiveTheme, (theme) => post({ type: "theme", theme }));
 
 function setLayout(l: "split" | "editor" | "preview") {
   layout.value = l;
@@ -402,7 +408,7 @@ const statusText = computed(
   <div class="workspace" :class="layout">
     <div class="editor-pane" ref="editorEl"></div>
     <div class="preview-pane">
-      <iframe ref="frame" class="preview" sandbox="allow-scripts" title="Preview" :srcdoc="srcdoc"></iframe>
+      <iframe ref="frame" class="preview-frame" sandbox="allow-scripts" title="Preview" :srcdoc="srcdoc"></iframe>
     </div>
 
     <div v-if="insertOpen" class="insert-panel" @keydown.esc="insertOpen = false">
@@ -460,14 +466,15 @@ const statusText = computed(
 .toolbar .spacer { flex: 1; }
 .toolbar .btn { margin-left: 4px; }
 .warnings { display: flex; gap: 8px; align-items: flex-start; margin: 8px 12px 0; padding: 8px 12px; font-size: 12px; flex: none; }
-.workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); position: relative; }
+/* One row that fills the space; panes keep fixed columns so hiding one never collapses the other. */
+.workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); position: relative; }
 .workspace.editor { grid-template-columns: minmax(0, 1fr) 0; }
 .workspace.preview { grid-template-columns: 0 minmax(0, 1fr); }
 .workspace.editor .preview-pane, .workspace.preview .editor-pane { display: none; }
-.editor-pane { min-height: 0; overflow: hidden; border-right: 1px solid var(--line); background: var(--panel); }
+.editor-pane { grid-column: 1; grid-row: 1; min-height: 0; overflow: hidden; border-right: 1px solid var(--line); background: var(--panel); }
 .workspace.editor .editor-pane :deep(.cm-content) { margin: 0 auto; }
-.preview-pane { min-height: 0; background: var(--bg); }
-.preview { width: 100%; height: 100%; border: 0; display: block; }
+.preview-pane { grid-column: 2; grid-row: 1; position: relative; min-height: 0; background: var(--bg); }
+.preview-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 .insert-panel { position: absolute; top: 8px; left: 12px; right: 12px; max-height: calc(100% - 16px); z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 18px 50px rgb(0 0 0 / 0.2); display: flex; flex-direction: column; overflow: hidden; }
 .insert-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .insert-head :deep(.ui-input) { flex: 1; }

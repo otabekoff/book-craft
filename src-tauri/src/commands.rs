@@ -314,3 +314,8 @@ pub fn project_set_format(state: State<AppState>, format: ConfigFormat) -> R<Pro
         Ok(project_data(p))
     })
 }
+/// Exits after the window has saved its work (used for Ctrl+C in the terminal).
+#[tauri::command]
+pub fn quit(app: AppHandle) {
+    app.exit(0);
+}

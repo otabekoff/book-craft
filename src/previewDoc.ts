@@ -21,8 +21,14 @@ body { padding: 40px 28px 120px; }
 <script>
 const a = document.getElementById("a");
 const vendor = "${ASSET_BASE}/_runtime/vendor/";
-function render(html, cls) {
+function setTheme(theme) {
+  if (!theme || document.documentElement.dataset.theme === theme) return;
+  document.documentElement.dataset.theme = theme;
+  if (window.BookBlocks) BookBlocks.setTheme(theme, a);
+}
+function render(html, cls, theme) {
   const y = scrollY;
+  if (theme) document.documentElement.dataset.theme = theme;
   a.className = cls;
   a.innerHTML = html || '<p class="empty">Start writing…</p>';
   if (window.BookBlocks) BookBlocks.hydrate(a, { vendor, theme: document.documentElement.dataset.theme });
@@ -31,11 +37,8 @@ function render(html, cls) {
 addEventListener("message", (e) => {
   if (e.source !== parent) return;
   const d = e.data || {};
-  if (d.type === "render") render(d.html, d.cls);
-  if (d.type === "theme") {
-    document.documentElement.dataset.theme = d.theme;
-    if (window.BookBlocks) BookBlocks.setTheme(d.theme, a);
-  }
+  if (d.type === "render") render(d.html, d.cls, d.theme);
+  if (d.type === "theme") setTheme(d.theme);
   if (d.type === "scroll") {
     const max = document.documentElement.scrollHeight - innerHeight;
     scrollTo(0, Math.max(0, max * d.ratio));

@@ -4,7 +4,7 @@ mod commands;
 mod preview;
 mod state;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -15,6 +15,17 @@ pub fn run() {
         .setup(|app| {
             let state = state::AppState::load(app.handle());
             app.manage(state);
+            // Ctrl+C in the terminal (or closing it) would otherwise kill the app mid-edit.
+            // Ask the window to save, then exit; quit anyway if it does not answer in time.
+            let handle = app.handle().clone();
+            let _ = ctrlc::set_handler(move || {
+                let _ = handle.emit("app-exit-requested", ());
+                let h = handle.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    h.exit(0);
+                });
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -38,6 +49,7 @@ pub fn run() {
             commands::test_read,
             commands::reveal,
             commands::launch,
+            commands::quit,
             commands::certificate_inspect,
             commands::certificate_create,
             commands::certificate_trust,
