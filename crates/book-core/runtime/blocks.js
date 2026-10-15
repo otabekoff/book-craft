@@ -418,6 +418,37 @@
     });
   }
 
+  /* ---------------------------------------------------------------- drop caps */
+
+  // A drop cap sinks two lines, so it looks broken on a first paragraph that fits on one.
+  // Measure the paragraph without it and keep it only when the text wraps; re-check on resize.
+  let dropCapWatch = null;
+  function checkDropCap(p) {
+    p.classList.add("bc-dropcap-short");
+    const lineHeight = parseFloat(getComputedStyle(p).lineHeight) || 1;
+    const lines = Math.round(p.getBoundingClientRect().height / lineHeight);
+    if (lines >= 2) p.classList.remove("bc-dropcap-short");
+  }
+  function hydrateDropCaps(root) {
+    const paragraphs = root.querySelectorAll(":scope.bc-dropcaps > h1 + p, .bc-dropcaps > h1 + p");
+    if (!paragraphs.length) return;
+    if (!dropCapWatch && window.ResizeObserver) {
+      let lastWidth = new WeakMap();
+      dropCapWatch = new ResizeObserver((entries) => {
+        entries.forEach((e) => {
+          const w = Math.round(e.contentRect.width);
+          if (lastWidth.get(e.target) === w) return; // only a width change can change the line count
+          lastWidth.set(e.target, w);
+          checkDropCap(e.target);
+        });
+      });
+    }
+    paragraphs.forEach((p) => {
+      checkDropCap(p);
+      if (dropCapWatch) dropCapWatch.observe(p);
+    });
+  }
+
   /* ---------------------------------------------------------------- api */
 
   async function hydrate(root, options) {
@@ -429,6 +460,7 @@
     hydrateQuiz(root);
     hydrateFlashcards(root);
     hydrateMedia(root);
+    hydrateDropCaps(root);
     await Promise.all([hydrateMath(root), hydrateMermaid(root, false)]);
   }
 

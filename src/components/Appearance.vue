@@ -146,7 +146,7 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
           </UiField>
         </div>
         <div class="grid">
-          <UiSwitch v-model="t.dropCaps" label="Drop caps" description="Large first letter in each chapter." />
+          <UiSwitch v-model="t.dropCaps" label="Drop caps" description="Large first letter in each chapter (skipped when the first paragraph is a single line)." />
           <UiSwitch v-model="t.justify" label="Justified text" description="Even right edge." />
           <UiSwitch v-model="t.hyphenate" label="Hyphenation" description="Breaks long words at line ends." />
           <UiSwitch v-model="t.smartQuotes" label="Smart punctuation" description="“Curly” quotes, dashes and ellipses." />

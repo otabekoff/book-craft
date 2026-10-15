@@ -212,7 +212,7 @@
 .bc-chapter.bc-heading-numbers h3::before { content: counter(bc-h2) "." counter(bc-h3) " "; color: var(--bc-muted); }
 
 /* initial-letter sinks the capital exactly two lines, whatever the font. */
-.bc-chapter.bc-dropcaps > h1 + p::first-letter {
+.bc-chapter.bc-dropcaps > h1 + p:not(.bc-nodropcap, .bc-dropcap-short)::first-letter {
   initial-letter: 2;
   -webkit-initial-letter: 2;
   /* Tied to the text size, not the letter's, so thin capitals like I keep a real gap. */
@@ -222,14 +222,14 @@
   color: var(--bc-accent-ink);
 }
 @supports not ((initial-letter: 2) or (-webkit-initial-letter: 2)) {
-  .bc-chapter.bc-dropcaps > h1 + p::first-letter {
+  .bc-chapter.bc-dropcaps > h1 + p:not(.bc-nodropcap, .bc-dropcap-short)::first-letter {
     float: left;
     font-size: calc(var(--bc-leading) * 2em * 0.98);
     line-height: 1;
     margin: 0.04em 0.1em 0 0;
   }
 }
-.bc-chapter .bc-nodropcap::first-letter { all: unset; }
+/* A drop cap needs two lines: bc-dropcap-short is set by blocks.js when the paragraph fits on one. */
 
 .bc-chapter a { color: var(--bc-accent-ink); text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
 .bc-chapter a:hover { text-decoration-thickness: 2px; }

@@ -138,7 +138,7 @@ impl Default for Typography {
             max_width: 700,
             justify: false,
             hyphenate: true,
-            drop_caps: true,
+            drop_caps: false,
             smart_quotes: true,
             scene_break: "✻ ✻ ✻".into(),
             paragraph_style: "spaced".into(),
