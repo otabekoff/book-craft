@@ -66,8 +66,10 @@ pub fn render(source: &str, caption: Option<&str>, asset_url: &dyn Fn(&str) -> S
     for c in &cmds {
         body.push_str(&draw(c, width, height, uid, &mut markers, &mut defs, asset_url)?);
     }
+    // Drawings fill the text width; only small ones keep their size so they don't blow up.
+    let limit = if width < 360.0 { format!(r#" style="max-width:{width}px""#) } else { String::new() };
     let mut html = format!(
-        r#"<figure class="bc-canvas"><svg viewBox="0 0 {width} {height}" class="bc-canvas-svg" role="img" aria-label="{}" style="max-width:{width}px"><defs>{defs}</defs>{body}</svg>"#,
+        r#"<figure class="bc-canvas"><svg viewBox="0 0 {width} {height}" class="bc-canvas-svg" role="img" aria-label="{}"{limit}><defs>{defs}</defs>{body}</svg>"#,
         escape(caption.unwrap_or("Drawing"))
     );
     if let Some(c) = caption.filter(|c| !c.is_empty()) {

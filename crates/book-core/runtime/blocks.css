@@ -211,14 +211,22 @@
 .bc-chapter.bc-heading-numbers h3 { counter-increment: bc-h3; }
 .bc-chapter.bc-heading-numbers h3::before { content: counter(bc-h2) "." counter(bc-h3) " "; color: var(--bc-muted); }
 
+/* initial-letter sinks the capital exactly two lines, whatever the font. */
 .bc-chapter.bc-dropcaps > h1 + p::first-letter {
-  float: left;
+  initial-letter: 2;
+  -webkit-initial-letter: 2;
+  margin-right: 0.12em;
   font-family: var(--bc-font-heading);
-  font-size: 3.3em;
-  line-height: 0.82;
-  padding: 0.08em 0.1em 0 0;
   font-weight: 650;
   color: var(--bc-accent-ink);
+}
+@supports not ((initial-letter: 2) or (-webkit-initial-letter: 2)) {
+  .bc-chapter.bc-dropcaps > h1 + p::first-letter {
+    float: left;
+    font-size: calc(var(--bc-leading) * 2em * 0.98);
+    line-height: 1;
+    margin: 0.04em 0.1em 0 0;
+  }
 }
 .bc-chapter .bc-nodropcap::first-letter { all: unset; }
 
@@ -345,14 +353,14 @@ details.bc-callout[open] > summary { margin-bottom: 0.45em; }
 
 .bc-chapter blockquote { margin: var(--bc-gap) 0; }
 .bc-chapter.bc-quotes-classic > blockquote,
-.bc-quote-classic blockquote {
+.bc-quote-classic > blockquote {
   margin-left: 0;
   padding: 0 0 0 1.5em;
   position: relative;
   font-style: italic;
 }
 .bc-chapter.bc-quotes-classic > blockquote::before,
-.bc-quote-classic blockquote::before {
+.bc-quote-classic > blockquote::before {
   content: "";
   position: absolute;
   left: 0;
@@ -365,11 +373,11 @@ details.bc-callout[open] > summary { margin-bottom: 0.45em; }
   mask: var(--bc-i-quote) center / contain no-repeat;
 }
 .bc-chapter.bc-quotes-line > blockquote,
-.bc-quote-line blockquote { margin-left: 0; padding-left: 1.2em; border-left: 3px solid var(--bc-accent); color: var(--bc-muted); }
+.bc-quote-line > blockquote { margin-left: 0; padding-left: 1.2em; border-left: 3px solid var(--bc-accent); color: var(--bc-muted); }
 .bc-chapter.bc-quotes-shaded > blockquote,
-.bc-quote-shaded blockquote { margin-left: 0; padding: var(--bc-pad); background: var(--bc-surface); border: 1px solid var(--bc-border); border-radius: var(--bc-r); }
+.bc-quote-shaded > blockquote { margin-left: 0; padding: var(--bc-pad); background: var(--bc-surface); border: 1px solid var(--bc-border); border-radius: var(--bc-r); }
 .bc-chapter.bc-quotes-minimal > blockquote,
-.bc-quote-minimal blockquote { margin-left: 0; color: var(--bc-muted); font-style: italic; }
+.bc-quote-minimal > blockquote { margin-left: 0; color: var(--bc-muted); font-style: italic; }
 .bc-chapter blockquote > :last-child { margin-bottom: 0; }
 
 .bc-quote { margin: var(--bc-gap) 0; }
@@ -382,16 +390,16 @@ details.bc-callout[open] > summary { margin-bottom: 0.45em; }
 .bc-quote-classic figcaption { padding-left: 1.5em; }
 
 .bc-quote-pull { text-align: center; padding: 1.3em 0.5em; border-block: 1px solid var(--bc-border-strong); }
-.bc-quote-pull blockquote { font-family: var(--bc-font-heading); font-size: 1.4em; line-height: 1.35; font-weight: 600; text-wrap: balance; }
+.bc-quote-pull > blockquote { font-family: var(--bc-font-heading); font-size: 1.4em; line-height: 1.35; font-weight: 600; text-wrap: balance; }
 .bc-quote-pull figcaption { justify-content: center; }
 
 .bc-quote-epigraph { margin: 0.4em 0 2.6em auto; max-width: 62%; text-align: right; }
-.bc-quote-epigraph blockquote { font-style: italic; font-size: 0.95em; }
+.bc-quote-epigraph > blockquote { font-style: italic; font-size: 0.95em; }
 .bc-quote-epigraph figcaption { justify-content: flex-end; }
 
 .bc-quote-card { padding: 1.3em 1.5em 1.1em; background: var(--bc-surface); border: 1px solid var(--bc-border); border-radius: var(--bc-r); }
-.bc-quote-card blockquote { font-size: 1.06em; }
-.bc-quote-card blockquote::before {
+.bc-quote-card > blockquote { font-size: 1.06em; }
+.bc-quote-card > blockquote::before {
   content: "";
   display: block;
   width: 1.4em;
@@ -401,7 +409,7 @@ details.bc-callout[open] > summary { margin-bottom: 0.45em; }
   -webkit-mask: var(--bc-i-quote) center / contain no-repeat;
   mask: var(--bc-i-quote) center / contain no-repeat;
 }
-.bc-quote-big blockquote { font-family: var(--bc-font-heading); font-size: 1.85em; line-height: 1.25; font-weight: 600; text-wrap: balance; }
+.bc-quote-big > blockquote { font-family: var(--bc-font-heading); font-size: 1.85em; line-height: 1.25; font-weight: 600; text-wrap: balance; }
 
 /* ================================================================ boxes and shapes */
 
@@ -511,7 +519,9 @@ details.bc-callout[open] > summary { margin-bottom: 0.45em; }
 .bc-tab { padding: var(--bc-pad); }
 .bc-tab > :first-child { margin-top: 0; }
 .bc-tab > :last-child { margin-bottom: 0; }
-.bc-tab > .bc-code:only-child { margin: -0.95em -1.15em; border: 0; border-radius: 0; }
+/* A code block that is a tab's only content fills the tab edge to edge. */
+.bc-tab:has(> .bc-code:only-child) { padding: 0; }
+.bc-tab > .bc-code:only-child { margin: 0; border: 0; border-radius: 0; }
 .bc-tabs .bc-tab[hidden] { display: none; }
 
 .bc-details { --bc-icon: var(--bc-i-chevron); padding: 0 1.15em; }
