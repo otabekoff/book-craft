@@ -99,24 +99,30 @@ button, select, input { font: inherit; color: inherit; }
 
 /* ------------------------------------------------------------ home */
 
-.home { position: relative; overflow-y: auto; display: flex; flex-direction: column; isolation: isolate; }
+.home { position: relative; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; isolation: isolate; }
 /* A soft wash of the cover (or the accent colour) behind the top of the page. */
 .home-backdrop {
   position: absolute;
   inset: 0 0 auto 0;
   height: 620px;
   z-index: -1;
+  overflow: hidden; /* the enlarged, blurred cover must not make the page scroll */
   pointer-events: none;
   background: radial-gradient(ellipse 70% 85% at 25% 0%, color-mix(in srgb, var(--bc-accent) 20%, transparent), transparent 72%);
 }
 .home-backdrop.has-image {
-  background-size: cover;
-  background-position: center;
+  background: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent 92%);
+  mask-image: linear-gradient(to bottom, #000 25%, transparent 92%);
+}
+.home-backdrop.has-image::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--cover) center / cover no-repeat;
   filter: blur(70px) saturate(1.25);
   opacity: 0.32;
   transform: scale(1.15);
-  -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent 92%);
-  mask-image: linear-gradient(to bottom, #000 25%, transparent 92%);
 }
 .home-main {
   width: 100%;

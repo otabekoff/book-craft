@@ -236,7 +236,8 @@
     renderCover($("cover"));
     const backdrop = $("home-backdrop");
     backdrop.classList.toggle("has-image", !!meta.cover);
-    backdrop.style.backgroundImage = meta.cover ? 'url("/' + meta.cover.replace(/^\/+/, "") + '")' : "";
+    if (meta.cover) backdrop.style.setProperty("--cover", 'url("/' + meta.cover.replace(/^\/+/, "") + '")');
+    else backdrop.style.removeProperty("--cover");
     $("home-eyebrow").textContent = [meta.publisher, meta.copyright && (meta.copyright.match(/\d{4}/) || [])[0]].filter(Boolean).join(" · ");
     $("home-title").textContent = meta.title;
     $("home-subtitle").textContent = meta.subtitle || "";

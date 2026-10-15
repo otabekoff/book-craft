@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
+import { computed, createApp, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { EditorView, basicSetup } from "codemirror";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Prec } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
-import { openSearchPanel } from "@codemirror/search";
+import { openSearchPanel, search, searchPanelOpen } from "@codemirror/search";
+import type { Panel, ViewUpdate } from "@codemirror/view";
+import FindPanel from "./FindPanel.vue";
 import { markdown } from "@codemirror/lang-markdown";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
@@ -104,114 +106,37 @@ const theme = EditorView.theme({
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": { backgroundColor: "color-mix(in srgb, var(--accent) 22%, transparent) !important" },
   ".cm-cursor": { borderLeftColor: "var(--accent)" },
   ".cm-panels": { backgroundColor: "var(--panel)", color: "var(--ink)" },
-  ".cm-panels.cm-panels-bottom": { borderTop: "1px solid var(--line)", boxShadow: "0 -8px 24px rgb(0 0 0 / 0.08)" },
-  ".cm-searchMatch": { backgroundColor: "color-mix(in srgb, #facc15 40%, transparent)" },
-  ".cm-searchMatch-selected": { backgroundColor: "color-mix(in srgb, #f59e0b 55%, transparent)" },
-  /* Find & replace, in the studio's own controls: two rows, toggle chips, a close button. */
-  ".cm-search": {
-    position: "relative",
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: "8px",
-    padding: "12px 52px 12px 16px",
-    fontFamily: "var(--font)",
-    fontSize: "13px",
-  },
-  // Wraps on narrow panes; the invisible break keeps Replace on its own row.
-  ".cm-search::before": { content: '""', order: "8", flexBasis: "100%", height: "0" },
-  ".cm-search br": { display: "none" },
-  ".cm-search [name=search]": { order: "1", flex: "1 1 200px" },
-  ".cm-search [name=next]": { order: "2" },
-  ".cm-search [name=prev]": { order: "3" },
-  ".cm-search [name=select]": { order: "4" },
-  ".cm-search > label": { order: "5" },
-  ".cm-search input[name=replace]": { order: "9", flex: "1 1 200px" },
-  ".cm-search button[name=replace]": { order: "10" },
-  ".cm-search [name=replaceAll]": { order: "11" },
-  ".cm-search .cm-textfield": {
-    height: "32px",
-    minWidth: "0",
-    margin: "0",
-    padding: "0 10px",
-    border: "1px solid var(--line)",
-    borderRadius: "8px",
-    background: "var(--panel-2)",
-    color: "var(--ink)",
-    font: "inherit",
-    outline: "none",
-  },
-  ".cm-search .cm-textfield:focus": { borderColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accent-soft)" },
-  ".cm-search .cm-button": {
-    height: "32px",
-    margin: "0",
-    padding: "0 12px",
-    border: "1px solid var(--line) !important",
-    borderRadius: "8px",
-    backgroundImage: "none !important",
-    backgroundColor: "var(--panel) !important",
-    color: "var(--ink)",
-    font: "inherit",
-    whiteSpace: "nowrap",
-    cursor: "pointer",
-  },
-  ".cm-search .cm-button:hover": { backgroundColor: "var(--panel-2) !important" },
-  ".cm-search label": {
-    position: "relative",
-    display: "inline-flex",
-    alignItems: "center",
-    height: "32px",
-    margin: "0",
-    padding: "0 12px",
-    border: "1px solid var(--line)",
-    borderRadius: "999px",
-    color: "var(--muted)",
-    fontSize: "12.5px",
-    whiteSpace: "nowrap",
-    cursor: "pointer",
-    userSelect: "none",
-  },
-  ".cm-search label:has(input:checked)": { backgroundColor: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent)" },
-  ".cm-search label:focus-within": { outline: "2px solid var(--accent)", outlineOffset: "1px" },
-  ".cm-search input[type=checkbox]": { position: "absolute", opacity: "0", width: "0", height: "0", margin: "0" },
-  ".cm-search [name=close]": {
-    position: "absolute",
-    top: "12px",
-    right: "12px",
-    width: "32px",
-    height: "32px",
-    padding: "0",
-    border: "none",
-    borderRadius: "8px",
-    background: "none",
-    color: "var(--muted)",
-    fontSize: "20px",
-    lineHeight: "1",
-    cursor: "pointer",
-  },
-  ".cm-search [name=close]:hover": { backgroundColor: "var(--panel-2)", color: "var(--ink)" },
+  ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--line)", boxShadow: "0 8px 24px -12px rgb(0 0 0 / 0.25)" },
+  ".cm-searchMatch": { backgroundColor: "color-mix(in srgb, #facc15 40%, transparent)", borderRadius: "2px" },
+  ".cm-searchMatch-selected": { backgroundColor: "color-mix(in srgb, #f59e0b 60%, transparent)" },
 });
 
-/** Clearer words for the find & replace panel. */
-const phrases = EditorState.phrases.of({
-  Find: "Find in chapter",
-  Replace: "Replace with",
-  next: "Next",
-  previous: "Previous",
-  all: "Select all",
-  "match case": "Match case",
-  regexp: "Regex",
-  "by word": "Whole word",
-  replace: "Replace",
-  "replace all": "Replace all",
-  close: "Close",
-});
-
-/** Ctrl+H: find & replace, with the cursor in the Replace field. */
-function openReplace(v: EditorView) {
-  openSearchPanel(v);
-  setTimeout(() => v.dom.querySelector<HTMLInputElement>(".cm-search input[name=replace]")?.focus(), 0);
-  return true;
+/* Find & replace: our own panel (FindPanel.vue) in place of CodeMirror's default one. */
+let wantReplace = false;
+function findPanel(view: EditorView): Panel {
+  const dom = document.createElement("div");
+  const app = createApp(FindPanel, { view, replace: wantReplace });
+  const panel = app.mount(dom) as unknown as { sync(u: ViewUpdate): void; focus(replace: boolean): void };
+  const replace = wantReplace;
+  wantReplace = false;
+  return {
+    dom,
+    top: true,
+    mount: () => panel.focus(replace),
+    update: (u) => panel.sync(u),
+    destroy: () => app.unmount(),
+  };
+}
+/** Ctrl+F finds; Ctrl+H opens the replace row too. If the panel is open, just move the focus. */
+function openFind(v: EditorView, replace: boolean) {
+  wantReplace = replace;
+  const input = v.dom.querySelector<HTMLInputElement>(".find input[aria-label=" + (replace ? '"Replace with"' : "Find") + "]");
+  if (searchPanelOpen(v.state) && (input || replace)) {
+    if (replace && !input) v.dom.querySelector<HTMLButtonElement>(".find .find-fold")?.click();
+    else (input?.focus(), input?.select());
+    return true;
+  }
+  return openSearchPanel(v);
 }
 
 function makeState(doc: string) {
@@ -223,16 +148,18 @@ function makeState(doc: string) {
       syntaxHighlighting(highlight),
       EditorView.lineWrapping,
       theme,
-      phrases,
-      keymap.of([
+      search({ top: true, createPanel: findPanel }),
+      // Ahead of the built-in keys, so Ctrl+F / Ctrl+H open our find panel the right way.
+      Prec.high(keymap.of([
         { key: "Mod-s", preventDefault: true, run: () => (saveNow(), true) },
         { key: "Mod-b", run: () => (wrap("**"), true) },
         { key: "Mod-i", run: () => (wrap("*"), true) },
         { key: "Mod-k", run: () => (link(), true) },
         { key: "Mod-e", run: () => (wrap("`"), true) },
         { key: "Mod-Shift-i", run: () => ((insertOpen.value = true), true) },
-        { key: "Mod-h", preventDefault: true, run: openReplace },
-      ]),
+        { key: "Mod-f", preventDefault: true, run: (v) => openFind(v, false) },
+        { key: "Mod-h", preventDefault: true, run: (v) => openFind(v, true) },
+      ])),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) changed();
       }),
