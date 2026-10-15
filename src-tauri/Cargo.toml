@@ -1,9 +1,11 @@
 [package]
 name = "book-craft"
-version = "0.1.0"
+version.workspace = true
 description = "Book Craft — write a book in Markdown, get a Windows app"
-authors = ["Book Craft"]
-edition = "2024"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
 
 [lib]
 # The `_lib` suffix keeps the lib name distinct from the bin name on Windows

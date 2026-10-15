@@ -4,6 +4,8 @@ description = "The reader runtime that every generated book app is made from"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
 
 [dependencies]
 pak-format = { path = "../pak-format" }

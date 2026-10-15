@@ -2,6 +2,20 @@
 
 Write a book in Markdown, press **Build**, get a Windows app: a portable `.exe`, a setup `.exe` (NSIS), an `.msi` (WiX) or an `.msix` — with your title, icon, publisher, version and package ID inside.
 
+[![CI](https://github.com/otabekoff/book-craft/actions/workflows/ci.yml/badge.svg)](https://github.com/otabekoff/book-craft/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+## Download
+
+Get the latest installer from [Releases](https://github.com/otabekoff/book-craft/releases): `Book.Craft_*_x64-setup.exe` (recommended) or the `.msi`. `bookcraft.exe` is the command-line builder. Windows 10 or 11, x64.
+
+## What the books can do
+
+- Read in one long scroll or turn pages, one or two at a time, with Fade, Slide, Flip (a page curl you can drag) or Instant turns.
+- Paper look, focus mode, full screen, light, sepia and dark themes, text size, typeface, line spacing and width (narrow to full).
+- Search, bookmarks, remembered reading position, page numbers and a contents sidebar.
+- Callouts, quotes, boxes, columns, tabs, math (KaTeX), chemistry, diagrams (Mermaid), charts, drawings, code with highlighting, quizzes, flashcards, exercises, timelines and more.
+
 ## How it works
 
 ```
@@ -49,9 +63,25 @@ bun run tauri dev
 bun run test
 ```
 
-```bash
-bun run tauri build
-```
+### Scripts
+
+| Script | What it does |
+|---|---|
+| `bun run app` | Run the studio with hot reload (`tauri dev`) |
+| `bun run dev` | Studio UI only, in a browser (add `?mock` for fake data) |
+| `bun run check` | Type-check the studio UI |
+| `bun run test` | Rust tests for every crate |
+| `bun run verify` | `check` + `test` |
+| `bun run prepare:resources` | Build the reader template, fonts, KaTeX and Mermaid into `src-tauri/resources` |
+| `bun run build:app` | Build and package the studio: `target/release/bundle/nsis/*-setup.exe` and `bundle/msi/*.msi` |
+| `bun run build:cli` | Build the command-line builder: `target/release/bookcraft.exe` |
+| `bun run package` | `build:app` + `build:cli` |
+| `bun run lucide-icons` | Regenerate the reader's and blocks' icons |
+| `bun run icons` | Regenerate the app icons |
+
+### Releases
+
+GitHub Actions runs type checks, tests and a build on every push (`.github/workflows/ci.yml`). Pushing a tag like `v0.2.0` builds the installers and the CLI and attaches them to a draft release (`.github/workflows/release.yml`); review the draft, then publish it. Bump the version in `package.json`, `Cargo.toml` (`[workspace.package]`) and `src-tauri/tauri.conf.json` first.
 
 Try the studio UI in an ordinary browser with fake data: run `bun run dev` and open `http://localhost:1420/?mock`.
 
@@ -73,7 +103,7 @@ cargo run -p bookcraft -- cert new "CN=My Press" D:\certs --password secret
 
 ### Studio UI
 
-The studio uses its own component kit in `src/ui` (`UiButton`, `UiSelect`, `UiRange`, `UiSwitch`, `UiCheckbox`, `UiSegmented`, `UiInput`, `UiField`, `UiCard`, `UiDialog`, `UiMenu`, `UiColor`, `UiBadge`) and [Lucide](https://lucide.dev) icons from `@lucide/vue`. The reader and the book blocks have no build step, so their icons are generated from the same package: run `bun run lucide-icons` after changing the lists in `scripts/lucide-icons.mjs` (it writes `crates/reader/ui/icons.js` and `crates/book-core/runtime/icons.css`).
+The studio uses its own component kit in `src/ui` (`UiButton`, `UiSelect`, `UiRange`, `UiSwitch`, `UiCheckbox`, `UiSegmented`, `UiInput`, `UiField`, `UiCard`, `UiDialog`, `UiMenu`, `UiColor`, `UiBadge`, `UiScrollArea`) and [Lucide](https://lucide.dev) icons from `@lucide/vue`. The reader and the book blocks have no build step, so their icons are generated from the same package: run `bun run lucide-icons` after changing the lists in `scripts/lucide-icons.mjs` (it writes `crates/reader/ui/icons.js` and `crates/book-core/runtime/icons.css`).
 
 ## Fonts
 
@@ -125,3 +155,9 @@ Each family can be switched off in **Blocks & features**; KaTeX and Mermaid are 
 - Readers keep their reading position and bookmarks in `%LOCALAPPDATA%\<package ID>`. The setup .exe's uninstaller offers to delete them (off by default, so silent uninstalls and upgrades keep them); the MSI leaves them in place.
 - The reader draws its own title bar that follows the book's theme; choose **Appearance → Reader → Title bar → Windows** for the standard one.
 - Raw HTML in Markdown is shown as text unless turned on; widgets and runnable code run in sandboxed frames without access to the reader's files.
+
+## License
+
+[MIT](LICENSE) © 2026 Otabek Sadiridinov
+
+Bundled fonts are under the SIL Open Font License (each book carries the licence of the fonts it uses); KaTeX and Mermaid are MIT; icons are from Lucide (ISC).

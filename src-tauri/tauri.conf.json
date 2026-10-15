@@ -29,6 +29,12 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
+    "publisher": "Otabek Sadiridinov",
+    "copyright": "Copyright © 2026 Otabek Sadiridinov",
+    "license": "MIT",
+    "category": "Productivity",
+    "shortDescription": "Write a book in Markdown, get a Windows app",
+    "longDescription": "Book Craft turns a book written in Markdown into a Windows reader app: a portable .exe, a setup .exe, an .msi or an .msix.",
     "resources": {
       "resources/reader/": "resources/reader/",
       "resources/runtime/": "resources/runtime/"

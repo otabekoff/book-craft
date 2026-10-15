@@ -1,0 +1,59 @@
+name: Release
+
+# Push a tag like v0.1.0 to build the installers and attach them to a draft release.
+# Review the draft on GitHub, then publish it.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and package Book Craft
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Rust tests
+        shell: bash
+        run: bun run prepare:resources && cargo test --workspace
+
+      # Builds the studio (resources are prepared by beforeBuildCommand) and uploads
+      # the setup .exe and .msi to a draft release for this tag.
+      - name: Build installers
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: bun run tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: Book Craft ${{ github.ref_name }}
+          releaseBody: |
+            Write a book in Markdown, press Build, get a Windows app.
+
+            - `Book.Craft_*_x64-setup.exe`: installer (recommended)
+            - `Book.Craft_*_x64_en-US.msi`: Windows Installer package
+            - `bookcraft.exe`: command-line book builder
+
+            The installers are not code-signed yet, so Windows SmartScreen may warn before the first run.
+          releaseDraft: true
+          prerelease: false
+
+      - name: Attach the command-line builder
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cargo build --release -p bookcraft
+          gh release upload "${{ github.ref_name }}" target/release/bookcraft.exe --clobber

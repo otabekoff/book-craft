@@ -6,6 +6,8 @@ members = ["src-tauri", "crates/book-core", "crates/reader", "crates/cli", "crat
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+authors = ["Otabek Sadiridinov"]
+repository = "https://github.com/otabekoff/book-craft"
 
 [profile.release]
 codegen-units = 1
