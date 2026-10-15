@@ -464,6 +464,9 @@ html[data-theme="dark"] .reader { --rd-desk: color-mix(in srgb, var(--bc-paper) 
 .reader.paged .bc-chapter :is(h1, h2, h3, h4, h5, h6) { break-after: avoid; break-inside: avoid; }
 /* Plain pages: the line between two pages is a column rule, so it moves with them when they slide. */
 .reader.paged.spread-2:not(.paper) .scroller .bc-chapter { column-rule: 1px solid var(--bc-border); }
+/* The rule between two spreads sits exactly on the frame's outer edges while at rest; trim them
+   so only the line between the two visible pages shows (it still slides through during a turn). */
+.reader.paged.spread-2:not(.paper) .page-frame { clip-path: inset(0 2px); }
 .reader.paged.paper .page-frame { background: var(--bc-paper); border-radius: 4px; box-shadow: var(--rd-sheet-shadow); }
 /* Paper: a soft gutter shadow down the middle of the sheet (paper does not slide). */
 .reader.paged.paper.spread-2 .page-frame::before {

@@ -108,6 +108,9 @@
     slide.title = slide.disabled ? "Not available with the paper look" : "";
     document.querySelectorAll("[data-numbers]").forEach((b) => b.setAttribute("aria-pressed", String(currentNumbers() === b.dataset.numbers)));
     document.querySelectorAll("[data-arrows]").forEach((b) => b.setAttribute("aria-pressed", String(currentArrows() === b.dataset.arrows)));
+    // Readers can lock selection so taps and drags never select text by accident.
+    document.body.classList.toggle("no-select", !canSelect());
+    document.querySelectorAll("[data-select]").forEach((b) => b.setAttribute("aria-pressed", String((prefs.select || "on") === b.dataset.select)));
     $("size-value").textContent = currentSize() + " px";
     renderFontList();
     renderSettings();
@@ -179,6 +182,12 @@
 
   function show(view) {
     ["home", "reader", "about"].forEach((v) => ($(v).hidden = v !== view));
+    if (view === "reader" && state.pendingLayout) {
+      const pending = state.pendingLayout;
+      state.pendingLayout = null;
+      // A different chapter being opened lays itself out; only redo the one we left.
+      requestAnimationFrame(() => state.chapter === pending.chapter && relayout(pending.ratio));
+    }
     if (view === "home") setSubtitle("");
     if (view === "about") setSubtitle("About this book");
     if (view !== "about") state.lastView = view;
@@ -607,7 +616,17 @@
   }
   let relayoutFrame = 0;
   function relayout(ratio) {
-    if (state.chapter < 0 || $("reader").hidden) return;
+    if (state.chapter < 0) return;
+    if ($("reader").hidden) {
+      // The reading view has no size while hidden (e.g. "Reset reading settings" on the About
+      // page); lay it out when it is shown again, at the same place.
+      if (!state.pendingLayout) {
+        const pos = load("position", null);
+        const at = ratio != null ? ratio : pos && pos.chapter === state.chapter ? pos.ratio || 0 : 0;
+        state.pendingLayout = { chapter: state.chapter, ratio: at };
+      }
+      return;
+    }
     if (ratio == null) ratio = positionRatio();
     cancelAnimationFrame(relayoutFrame);
     relayoutFrame = requestAnimationFrame(() => {
@@ -1336,8 +1355,8 @@
   function renderBookmarks() {
     const r = state.book.reader;
     $("bookmarks-section").hidden = !r.enableBookmarks;
-    $("highlights-section").hidden = !canSelect();
-    $("marks-title").textContent = r.enableBookmarks && canSelect() ? "Bookmarks & highlights" : r.enableBookmarks ? "Bookmarks" : "Highlights";
+    $("highlights-section").hidden = !authorAllowsSelect();
+    $("marks-title").textContent = r.enableBookmarks && authorAllowsSelect() ? "Bookmarks & highlights" : r.enableBookmarks ? "Bookmarks" : "Highlights";
     const list = $("bookmark-list");
     list.innerHTML = "";
     const all = bookmarks();
@@ -1411,8 +1430,13 @@
      if the chapter changed) and drawn with the CSS Highlight API, so the page's HTML is never touched. */
 
   const SKIP_TEXT = ".katex, .mermaid, svg, script, style, .bc-code-tools, button";
-  function canSelect() {
+  /** The author lets readers select text (for highlights and copying). */
+  function authorAllowsSelect() {
     return state.book.reader.allowSelect !== false;
+  }
+  /** Selection is possible right now: allowed by the author and not locked by the reader. */
+  function canSelect() {
+    return authorAllowsSelect() && prefs.select !== "off";
   }
   function highlights() {
     return load("highlights", []);
@@ -1691,7 +1715,7 @@
       [["←", "→"], "Previous or next page (chapter when scrolling)"],
       [["Space"], "Next page in page mode"],
       r.enableSearch && [["Ctrl", "F"], "Search the book"],
-      (r.enableBookmarks || canSelect()) && [["Ctrl", "D"], "Bookmarks and highlights"],
+      (r.enableBookmarks || authorAllowsSelect()) && [["Ctrl", "D"], "Bookmarks and highlights"],
       r.showToc && [["Ctrl", "B"], "Show or hide the contents"],
       r.allowFontSizeChange && [["Ctrl", "+"], "Larger or smaller text (Ctrl −)"],
       [["F"], "Focus mode"],
@@ -1828,6 +1852,15 @@
     document.querySelectorAll("[data-turn]").forEach((b) => b.addEventListener("click", () => setPref("turn", b.dataset.turn)));
     document.querySelectorAll("[data-numbers]").forEach((b) => b.addEventListener("click", () => setPref("numbers", b.dataset.numbers)));
     document.querySelectorAll("[data-arrows]").forEach((b) => b.addEventListener("click", () => setPref("arrows", b.dataset.arrows)));
+    document.querySelectorAll("[data-select]").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (b.dataset.select === "off") {
+          window.getSelection().removeAllRanges();
+          hideSelMenu();
+        }
+        setPref("select", b.dataset.select === "off" ? "off" : "");
+      })
+    );
     $("arrow-prev").addEventListener("click", () => turn(-1));
     $("arrow-next").addEventListener("click", () => turn(1));
     wireSelection();
@@ -1876,7 +1909,7 @@
         toggle("search-panel");
         return;
       }
-      if (e.ctrlKey && e.key.toLowerCase() === "d" && (r.enableBookmarks || canSelect()) && !$("reader").hidden) {
+      if (e.ctrlKey && e.key.toLowerCase() === "d" && (r.enableBookmarks || authorAllowsSelect()) && !$("reader").hidden) {
         e.preventDefault();
         toggle("bookmark-panel");
         return;
@@ -1923,7 +1956,6 @@
       }
     });
     // Selecting and copying are separate choices. Code blocks' copy buttons always work.
-    if (!canSelect()) document.body.classList.add("no-select");
     if (!r.allowCopy) {
       document.body.classList.add("no-copy");
       const block = (e) => {
@@ -1938,7 +1970,8 @@
     if (!r.allowPrint) window.addEventListener("beforeprint", (e) => e.preventDefault());
 
     $("btn-search").hidden = !r.enableSearch;
-    $("btn-bookmark").hidden = !(r.enableBookmarks || canSelect());
+    $("btn-bookmark").hidden = !(r.enableBookmarks || authorAllowsSelect());
+    $("row-select").hidden = !authorAllowsSelect();
     $("btn-home").hidden = !r.showHomeScreen;
     $("row-theme").hidden = !r.allowThemeChange;
     $("row-size").hidden = !r.allowFontSizeChange;
