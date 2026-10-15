@@ -82,6 +82,12 @@
         <button class="icon-btn" id="btn-bookmark" type="button" aria-label="Bookmark this place" title="Bookmarks (Ctrl+D)">
           <span data-icon="bookmark"></span>
         </button>
+        <button class="icon-btn" id="btn-focus" type="button" aria-label="Focus mode" title="Focus mode (F)" aria-pressed="false">
+          <span data-icon="focus"></span>
+        </button>
+        <button class="icon-btn" id="btn-fullscreen" type="button" aria-label="Full screen" title="Full screen (F11)" aria-pressed="false">
+          <span data-icon="maximize"></span>
+        </button>
         <button class="icon-btn" id="btn-display" type="button" aria-label="Text and theme" title="Text and theme" aria-expanded="false">
           <span data-icon="a-large-small"></span>
         </button>
@@ -126,6 +132,29 @@
             <button type="button" data-width="narrow">Narrow</button>
             <button type="button" data-width="">Normal</button>
             <button type="button" data-width="wide">Wide</button>
+            <button type="button" data-width="full">Full</button>
+          </div>
+        </div>
+        <div class="pop-row">
+          <span class="pop-label">Layout</span>
+          <div class="seg seg-text" role="group" aria-label="Layout" id="layout-buttons">
+            <button type="button" data-layout="scroll">Scroll</button>
+            <button type="button" data-layout="pages">Pages</button>
+          </div>
+        </div>
+        <div class="pop-row" id="row-spread">
+          <span class="pop-label">Pages</span>
+          <div class="seg seg-text" role="group" aria-label="Pages per screen" id="spread-buttons">
+            <button type="button" data-spread="auto">Auto</button>
+            <button type="button" data-spread="one">One</button>
+            <button type="button" data-spread="two">Two</button>
+          </div>
+        </div>
+        <div class="pop-row">
+          <span class="pop-label">Look</span>
+          <div class="seg seg-text" role="group" aria-label="Page look" id="paper-buttons">
+            <button type="button" data-paper="off">Plain</button>
+            <button type="button" data-paper="on">Paper</button>
           </div>
         </div>
       </div>
@@ -153,7 +182,10 @@
       </div>
 
       <div class="scroller" id="scroller">
-        <article id="chapter" class="bc-chapter" tabindex="-1"></article>
+        <div class="page-frame" id="page-frame">
+          <article id="chapter" class="bc-chapter" tabindex="-1"></article>
+          <div class="page-number" id="page-number" aria-live="polite"></div>
+        </div>
         <nav class="chapter-nav" aria-label="Chapter navigation">
           <button type="button" class="btn btn-secondary" id="prev">← Previous</button>
           <button type="button" class="btn btn-primary" id="next">Next chapter →</button>

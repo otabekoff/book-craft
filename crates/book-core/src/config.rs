@@ -175,6 +175,14 @@ pub struct ReaderSettings {
     pub title_bar: String,
     /// Fonts readers may switch to (besides the book's own). Bundled ones are packed.
     pub font_choices: Vec<String>,
+    /// How chapters open at first: `scroll` (one long page) or `pages` (turn pages like a book).
+    pub default_layout: String,
+    /// Pages per screen in page mode: `auto` (two when the window is wide), `one` or `two`.
+    pub page_spread: String,
+    /// Show the text on a paper sheet over a darker desk.
+    pub paper_look: bool,
+    /// Text column width readers start with: `narrow`, `normal`, `wide` or `full`.
+    pub default_width: String,
 }
 
 impl Default for ReaderSettings {
@@ -199,6 +207,10 @@ impl Default for ReaderSettings {
             open_links_externally: true,
             title_bar: "custom".into(),
             font_choices: vec!["georgia".into(), "segoe".into(), "verdana".into()],
+            default_layout: "scroll".into(),
+            page_spread: "auto".into(),
+            paper_look: false,
+            default_width: "normal".into(),
         }
     }
 }

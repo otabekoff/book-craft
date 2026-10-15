@@ -210,8 +210,9 @@ function heading(level: number) {
   const v = view.value!;
   const head = v.state.selection.main.head;
   const line = v.state.doc.lineAt(head);
-  const marker = line.text.match(/^#{1,6}\s+/)?.[0] ?? "";
-  const current = marker ? marker.trim().length : 0;
+  // A heading replaces a list marker too (a list item can't be a heading).
+  const marker = line.text.match(level ? /^(#{1,6}\s+|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)/ : /^#{1,6}\s+/)?.[0] ?? "";
+  const current = marker.startsWith("#") ? marker.trim().length : 0;
   const next = level === 0 || current === level ? "" : "#".repeat(level) + " ";
   // Keep the cursor at the same spot in the text, or at the end when it sat inside the old marker.
   const offset = Math.max(0, head - line.from - marker.length);

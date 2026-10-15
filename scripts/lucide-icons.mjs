@@ -12,7 +12,7 @@ const dir = join(root, "node_modules", "@lucide", "vue", "dist", "esm", "icons")
 const READER = [
   "menu", "book-open", "search", "bookmark", "bookmark-plus", "a-large-small", "info", "x", "chevron-left",
   "arrow-left", "arrow-right", "trash", "sun", "moon", "monitor", "coffee", "house", "minus", "square", "copy",
-  "check", "type", "list-tree", "rotate-ccw",
+  "check", "type", "list-tree", "rotate-ccw", "maximize", "minimize", "focus", "scroll-text", "book-open-text",
 ];
 
 // Block name → Lucide icon.

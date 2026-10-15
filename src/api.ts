@@ -67,6 +67,10 @@ export interface ReaderSettings {
   openLinksExternally: boolean;
   titleBar: string;
   fontChoices: string[];
+  defaultLayout: string;
+  pageSpread: string;
+  paperLook: boolean;
+  defaultWidth: string;
 }
 
 export interface Toggle {

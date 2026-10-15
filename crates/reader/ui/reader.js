@@ -10,7 +10,13 @@
     searchIndex: null,
     lastView: "home",
     saveTimer: 0,
+    focus: false,
+    fullscreen: false,
+    openAtEnd: false,
+    lastWheel: 0,
   };
+  // Page mode: the chapter is laid out in CSS columns inside a fixed frame, one column per page.
+  const pager = { page: 0, pages: 1, cols: 1, n: 1, pw: 0, gap: 0, step: 0 };
   let prefs = {};
   let storeKey = "bookcraft";
 
@@ -72,14 +78,24 @@
     if (prefs.leading === "compact") root.setProperty("--bc-leading", "1.45");
     if (prefs.leading === "relaxed") root.setProperty("--bc-leading", "1.9");
     root.removeProperty("--bc-measure");
-    if (prefs.width === "narrow") root.setProperty("--bc-measure", "600px");
-    if (prefs.width === "wide") root.setProperty("--bc-measure", "900px");
+    const width = currentWidth();
+    if (width === "narrow") root.setProperty("--bc-measure", "600px");
+    if (width === "wide") root.setProperty("--bc-measure", "900px");
+    if (width === "full") root.setProperty("--bc-measure", "none");
+    const reader = $("reader");
+    reader.classList.toggle("paged", isPaged());
+    reader.classList.toggle("paper", currentPaper() === "on");
+    reader.classList.toggle("width-full", width === "full");
+    $("row-spread").hidden = !isPaged();
 
     document.querySelectorAll("[data-theme-choice]").forEach((b) =>
       b.setAttribute("aria-pressed", String((prefs.theme || state.book.reader.defaultTheme) === b.dataset.themeChoice))
     );
     document.querySelectorAll("[data-leading]").forEach((b) => b.setAttribute("aria-pressed", String((prefs.leading || "") === b.dataset.leading)));
-    document.querySelectorAll("[data-width]").forEach((b) => b.setAttribute("aria-pressed", String((prefs.width || "") === b.dataset.width)));
+    document.querySelectorAll("[data-width]").forEach((b) => b.setAttribute("aria-pressed", String(width === b.dataset.width)));
+    document.querySelectorAll("[data-layout]").forEach((b) => b.setAttribute("aria-pressed", String(currentLayout() === b.dataset.layout)));
+    document.querySelectorAll("[data-spread]").forEach((b) => b.setAttribute("aria-pressed", String(currentSpread() === b.dataset.spread)));
+    document.querySelectorAll("[data-paper]").forEach((b) => b.setAttribute("aria-pressed", String(currentPaper() === b.dataset.paper)));
     $("size-value").textContent = currentSize() + " px";
     renderFontList();
     renderSettings();
@@ -107,11 +123,31 @@
   function currentSize() {
     return prefs.size || parseInt(getComputedStyle(document.documentElement).getPropertyValue("--bc-size"), 10) || 19;
   }
+  // Reader choices fall back to the author's defaults.
+  function currentWidth() {
+    return prefs.width || state.book.reader.defaultWidth || "normal";
+  }
+  function currentLayout() {
+    return prefs.layout || state.book.reader.defaultLayout || "scroll";
+  }
+  function currentSpread() {
+    return prefs.spread || state.book.reader.pageSpread || "auto";
+  }
+  function currentPaper() {
+    return prefs.paper || (state.book.reader.paperLook ? "on" : "off");
+  }
+  function isPaged() {
+    return currentLayout() === "pages";
+  }
   function setPref(key, value) {
+    const ratio = positionRatio();
     if (value === "" || value == null) delete prefs[key];
     else prefs[key] = value;
     save("prefs", prefs);
     applyDisplay();
+    relayout(ratio);
+    // Web fonts can arrive after the change; lay the pages out again once they have.
+    if (document.fonts && isPaged()) document.fonts.ready.then(() => relayout(ratio));
   }
   systemDark.addEventListener("change", applyDisplay);
 
@@ -272,16 +308,23 @@
         window.BookBlocks.hydrate(article, { vendor: "/_runtime/vendor/", theme: effectiveTheme() });
       }
       const pos = load("position", null);
-      if (!anchor && pos && pos.chapter === i && b.reader.rememberPosition && !(opts && opts.top)) {
-        requestAnimationFrame(() => (scroller.scrollTop = pos.ratio * (scroller.scrollHeight - scroller.clientHeight)));
-      } else {
-        scroller.scrollTop = 0;
+      const atEnd = state.openAtEnd;
+      state.openAtEnd = false;
+      let ratio = 0;
+      if (!anchor && pos && pos.chapter === i && b.reader.rememberPosition && !(opts && opts.top)) ratio = pos.ratio;
+      scroller.scrollTop = 0;
+      if (isPaged()) {
+        paginate();
+        setRatio(atEnd ? 1 : ratio, false);
+        settlePages(i, atEnd ? 1 : ratio);
+      } else if (ratio) {
+        requestAnimationFrame(() => setRatio(ratio));
       }
       requestAnimationFrame(() => (state.loading = false));
     }
     if (anchor) {
       const target = document.getElementById(anchor);
-      if (target) requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
+      if (target) requestAnimationFrame(() => reveal(target));
     }
     $("toolbar-title").textContent = b.chapters[i].title;
     document.title = b.chapters[i].title + " — " + b.meta.title;
@@ -307,6 +350,235 @@
     const max = s.scrollHeight - s.clientHeight;
     return max > 0 ? Math.min(1, Math.max(0, s.scrollTop / max)) : 0;
   }
+  /** How far through the chapter the reader is, 0-1, in either layout. */
+  function positionRatio() {
+    if (state.chapter < 0) return 0;
+    if ($("reader").classList.contains("paged")) return pager.pages > 1 ? pager.page / (pager.pages - 1) : 0;
+    return scrollRatio();
+  }
+  function setRatio(ratio, animate) {
+    if (isPaged()) {
+      countPages();
+      goto(Math.round((ratio || 0) * (pager.pages - 1)), animate);
+    } else {
+      const s = $("scroller");
+      s.scrollTop = (ratio || 0) * (s.scrollHeight - s.clientHeight);
+    }
+  }
+  /** Bring an element (or a Range) into view: scroll to it, or turn to its page. */
+  function reveal(target, where) {
+    if (!isPaged()) {
+      if (where === "third") {
+        const s = $("scroller");
+        s.scrollTop += target.getBoundingClientRect().top - s.getBoundingClientRect().top - s.clientHeight / 3;
+      } else target.scrollIntoView({ block: "start", behavior: where === "smooth" ? "smooth" : "auto" });
+      return;
+    }
+    const left = target.getBoundingClientRect().left - $("chapter").getBoundingClientRect().left;
+    countPages();
+    goto(Math.floor((left + 1) / pager.step), true);
+  }
+
+  /* ---------------------------------------------------------------- page mode */
+
+  function pagePadding() {
+    const narrow = window.innerWidth < 760;
+    return { x: narrow ? 24 : 48, top: narrow ? 28 : 44, bottom: 52 };
+  }
+  function clearPaging() {
+    const article = $("chapter");
+    $("page-frame").removeAttribute("style");
+    ["width", "height", "columns", "column-gap", "transform", "--page-h"].forEach((k) => article.style.removeProperty(k));
+    article.classList.remove("turning");
+    $("reader").classList.remove("spread-2");
+    $("page-number").textContent = "";
+  }
+  /** Size the frame and columns for the current window. Keeps the page index (clamped). */
+  function paginate() {
+    const scroller = $("scroller");
+    const frame = $("page-frame");
+    const article = $("chapter");
+    const pad = pagePadding();
+    const outer = currentPaper() === "on" ? (window.innerWidth < 760 ? 10 : 24) : 0;
+    const gap = pad.x * 2;
+    const availW = scroller.clientWidth - outer * 2 - pad.x * 2;
+    const availH = scroller.clientHeight - outer * 2;
+    const measure = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--bc-measure")) || Infinity;
+    const spread = currentSpread();
+    let n = spread === "two" ? 2 : spread === "one" ? 1 : availW >= 2 * 480 + gap && scroller.clientWidth > scroller.clientHeight ? 2 : 1;
+    if (n === 2 && (availW - gap) / 2 < 280) n = 1;
+    const pw = Math.floor(Math.max(200, n === 2 ? Math.min(measure, (availW - gap) / 2) : Math.min(measure, availW)));
+    const contentW = n * pw + (n - 1) * gap;
+    const contentH = Math.max(160, availH - pad.top - pad.bottom);
+    frame.style.width = contentW + pad.x * 2 + "px";
+    frame.style.height = availH + "px";
+    frame.style.padding = pad.top + "px " + pad.x + "px " + pad.bottom + "px";
+    article.style.width = contentW + "px";
+    article.style.height = contentH + "px";
+    article.style.columns = n + " " + pw + "px";
+    article.style.columnGap = gap + "px";
+    article.style.setProperty("--page-h", contentH + "px");
+    $("reader").classList.toggle("spread-2", n === 2);
+    Object.assign(pager, { n, pw, gap, step: contentW + gap });
+    countPages();
+    goto(pager.page, false);
+  }
+  function countPages() {
+    const article = $("chapter");
+    pager.cols = Math.max(1, Math.round((article.scrollWidth + pager.gap) / (pager.pw + pager.gap)));
+    pager.pages = Math.max(1, Math.ceil(pager.cols / pager.n));
+  }
+  function goto(page, animate) {
+    const article = $("chapter");
+    pager.page = Math.max(0, Math.min(pager.pages - 1, page || 0));
+    article.classList.toggle("turning", !!animate);
+    article.style.transform = "translateX(" + -pager.page * pager.step + "px)";
+    const first = pager.page * pager.n + 1;
+    const last = Math.min(pager.cols, first + pager.n - 1);
+    $("page-number").textContent = (first === last ? first : first + "–" + last) + " of " + pager.cols;
+    updateProgress();
+    clearTimeout(state.saveTimer);
+    state.saveTimer = setTimeout(saveNow, 400);
+  }
+  /** Next or previous page, crossing into the neighbouring chapter at either end. */
+  function turn(dir) {
+    if (state.chapter < 0) return;
+    countPages();
+    const count = state.book.chapters.length;
+    if (dir > 0) {
+      if (pager.page < pager.pages - 1) goto(pager.page + 1, true);
+      else if (state.chapter < count - 1) location.hash = "#read/" + (state.chapter + 1);
+    } else if (pager.page > 0) goto(pager.page - 1, true);
+    else if (state.chapter > 0) {
+      state.openAtEnd = true;
+      location.hash = "#read/" + (state.chapter - 1);
+    }
+  }
+  /** Math, diagrams and fonts finish after the first layout; recount a few times while the page is still untouched. */
+  function settlePages(chapter, ratio) {
+    let expect = pager.page;
+    [150, 600, 1500].forEach((ms) =>
+      setTimeout(() => {
+        if (state.chapter !== chapter || !isPaged() || pager.page !== expect) return;
+        countPages();
+        goto(Math.round(ratio * (pager.pages - 1)), false);
+        expect = pager.page;
+      }, ms)
+    );
+  }
+  let relayoutFrame = 0;
+  function relayout(ratio) {
+    if (state.chapter < 0 || $("reader").hidden) return;
+    if (ratio == null) ratio = positionRatio();
+    cancelAnimationFrame(relayoutFrame);
+    relayoutFrame = requestAnimationFrame(() => {
+      if (isPaged()) {
+        paginate();
+        setRatio(ratio, false);
+      } else {
+        clearPaging();
+        setRatio(ratio);
+      }
+    });
+  }
+  function scrollsItself(node, dy) {
+    for (let n = node; n && n.id !== "chapter"; n = n.parentElement) {
+      if (n.nodeType !== 1) continue;
+      const oy = getComputedStyle(n).overflowY;
+      if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 1) {
+        if ((dy > 0 && n.scrollTop + n.clientHeight < n.scrollHeight - 1) || (dy < 0 && n.scrollTop > 0)) return true;
+      }
+    }
+    return false;
+  }
+  function wirePages() {
+    const scroller = $("scroller");
+    scroller.addEventListener(
+      "wheel",
+      (e) => {
+        if (!isPaged() || e.ctrlKey) return;
+        const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (scrollsItself(e.target, d)) return;
+        e.preventDefault();
+        // One turn per wheel gesture: a burst of events counts once.
+        const now = Date.now();
+        const fresh = now - state.lastWheel > 320;
+        state.lastWheel = now;
+        if (fresh && Math.abs(d) >= 4) turn(d > 0 ? 1 : -1);
+      },
+      { passive: false }
+    );
+    // Click the outer part of a page (or the desk beside it) to turn.
+    scroller.addEventListener("click", (e) => {
+      if (!isPaged() || e.button !== 0) return;
+      if (e.target.closest("a, button, input, textarea, select, summary, label, details, video, audio, iframe, canvas, [role=button], [contenteditable], .bc-code, .bc-flashcard, .bc-quiz")) return;
+      if (String(window.getSelection && window.getSelection()).length) return;
+      const r = $("page-frame").getBoundingClientRect();
+      const zone = Math.min(160, r.width * 0.2);
+      if (e.clientX < r.left + zone) turn(-1);
+      else if (e.clientX > r.right - zone) turn(1);
+    });
+    // Swipe on touch screens.
+    let touch = null;
+    scroller.addEventListener("pointerdown", (e) => {
+      if (isPaged() && e.pointerType === "touch") touch = { x: e.clientX, y: e.clientY };
+    });
+    scroller.addEventListener("pointerup", (e) => {
+      if (!touch) return;
+      const dx = e.clientX - touch.x;
+      const dy = e.clientY - touch.y;
+      touch = null;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) turn(dx < 0 ? 1 : -1);
+    });
+    // Tabbing to a link on another page turns to it.
+    $("chapter").addEventListener("focusin", (e) => {
+      if (isPaged() && e.target.id !== "chapter") reveal(e.target);
+    });
+    // Late images and diagrams change the page count.
+    $("chapter").addEventListener("load", () => isPaged() && (countPages(), goto(pager.page, false)), true);
+    if (window.ResizeObserver) new ResizeObserver(() => isPaged() && relayout()).observe(scroller);
+  }
+
+  /* ---------------------------------------------------------------- focus & full screen */
+
+  function setFocusMode(on) {
+    state.focus = on;
+    const reader = $("reader");
+    reader.classList.toggle("focus", on);
+    $("btn-focus").setAttribute("aria-pressed", String(on));
+    if (on) {
+      // Show the toolbar briefly so readers see how to leave.
+      reader.classList.add("chrome-on");
+      setTimeout(() => reader.classList.remove("chrome-on"), 1600);
+    }
+  }
+  function tauriWindow() {
+    const t = window.__TAURI__;
+    return t && t.window ? t.window.getCurrentWindow() : null;
+  }
+  async function setFullscreen(on) {
+    const win = tauriWindow();
+    try {
+      if (win) await win.setFullscreen(on);
+      else if (on) await document.documentElement.requestFullscreen();
+      else if (document.fullscreenElement) await document.exitFullscreen();
+    } catch (e) {
+      return;
+    }
+    syncFullscreen(on);
+  }
+  function syncFullscreen(on) {
+    state.fullscreen = on;
+    $("app").classList.toggle("fullscreen", on);
+    const b = $("btn-fullscreen");
+    b.setAttribute("aria-pressed", String(on));
+    b.setAttribute("aria-label", on ? "Leave full screen" : "Full screen");
+    b.title = (on ? "Leave full screen" : "Full screen") + " (F11)";
+    b.querySelector("[data-icon]").innerHTML = (window.ReaderIcons || {})[on ? "minimize" : "maximize"] || "";
+  }
+  function panelsOpen() {
+    return ["display-panel", "search-panel", "bookmark-panel"].some((p) => !$(p).hidden);
+  }
   function overallPercent(chapter, ratio) {
     const cs = state.book.chapters;
     const total = cs.reduce((n, c) => n + Math.max(1, c.words), 0);
@@ -317,14 +589,14 @@
   }
   function updateProgress() {
     if (state.chapter < 0) return;
-    const pct = overallPercent(state.chapter, scrollRatio());
+    const pct = overallPercent(state.chapter, positionRatio());
     $("progress-chapter").textContent = "Chapter " + (state.chapter + 1) + " of " + state.book.chapters.length;
     $("progress-fill").style.width = pct + "%";
     $("progress-pct").textContent = pct + "% read";
   }
   function saveNow() {
     if (state.chapter < 0 || state.loading || !state.book.reader.rememberPosition) return;
-    save("position", { chapter: state.chapter, ratio: scrollRatio(), at: Date.now() });
+    save("position", { chapter: state.chapter, ratio: positionRatio(), at: Date.now() });
   }
 
   /* ---------------------------------------------------------------- links & viewer */
@@ -358,7 +630,7 @@
     if (a.closest("#chapter") && href.startsWith("#") && !href.startsWith("#read/")) {
       e.preventDefault();
       const t = document.getElementById(decodeURIComponent(href.slice(1)));
-      if (t) t.scrollIntoView({ block: "start", behavior: "smooth" });
+      if (t) reveal(t, "smooth");
       return;
     }
     if (a.dataset.viewer || /^\/assets\/.+\.(pdf|txt|png|jpe?g|gif|webp|svg|mp4|webm|mp3|wav|ogg)$/i.test(href)) {
@@ -448,11 +720,7 @@
     }
     CSS.highlights.set("bc-search", new Highlight(...ranges));
     const target = ranges[Math.min(occurrence || 0, ranges.length - 1)];
-    if (target) {
-      const rect = target.getBoundingClientRect();
-      const s = $("scroller");
-      s.scrollTop += rect.top - s.getBoundingClientRect().top - s.clientHeight / 3;
-    }
+    if (target) reveal(target, "third");
   }
 
   /* ---------------------------------------------------------------- bookmarks */
@@ -477,8 +745,7 @@
         closePanels();
         save("position", { chapter: bm.chapter, ratio: bm.ratio, at: Date.now() });
         if (state.chapter === bm.chapter) {
-          const s = $("scroller");
-          s.scrollTop = bm.ratio * (s.scrollHeight - s.clientHeight);
+          setRatio(bm.ratio, true);
         } else {
           state.chapter = -1;
           location.hash = "#read/" + bm.chapter;
@@ -499,16 +766,19 @@
   function addBookmark() {
     const s = $("scroller");
     const top = s.getBoundingClientRect().top + 40;
+    const frame = $("page-frame").getBoundingClientRect();
+    const paged = isPaged();
     let text = "";
     const blocks = $("chapter").querySelectorAll("p, h1, h2, h3, li");
     for (const b of blocks) {
-      if (b.getBoundingClientRect().bottom > top) {
+      const rect = b.getBoundingClientRect();
+      if (paged ? rect.right > frame.left && rect.left < frame.right : rect.bottom > top) {
         text = b.textContent.trim().slice(0, 140);
         break;
       }
     }
     const all = bookmarks();
-    all.unshift({ chapter: state.chapter, ratio: scrollRatio(), text, at: Date.now() });
+    all.unshift({ chapter: state.chapter, ratio: positionRatio(), text, at: Date.now() });
     save("bookmarks", all.slice(0, 200));
     renderBookmarks();
   }
@@ -625,6 +895,13 @@
     document.querySelectorAll("[data-theme-choice]").forEach((b) => b.addEventListener("click", () => setPref("theme", b.dataset.themeChoice)));
     document.querySelectorAll("[data-leading]").forEach((b) => b.addEventListener("click", () => setPref("leading", b.dataset.leading)));
     document.querySelectorAll("[data-width]").forEach((b) => b.addEventListener("click", () => setPref("width", b.dataset.width)));
+    document.querySelectorAll("[data-layout]").forEach((b) => b.addEventListener("click", () => setPref("layout", b.dataset.layout)));
+    document.querySelectorAll("[data-spread]").forEach((b) => b.addEventListener("click", () => setPref("spread", b.dataset.spread)));
+    document.querySelectorAll("[data-paper]").forEach((b) => b.addEventListener("click", () => setPref("paper", b.dataset.paper)));
+    $("btn-focus").addEventListener("click", () => setFocusMode(!state.focus));
+    $("btn-fullscreen").addEventListener("click", () => setFullscreen(!state.fullscreen));
+    document.addEventListener("fullscreenchange", () => !tauriWindow() && syncFullscreen(!!document.fullscreenElement));
+    wirePages();
     $("size-down").addEventListener("click", () => setPref("size", Math.max(14, currentSize() - 1)));
     $("size-up").addEventListener("click", () => setPref("size", Math.min(30, currentSize() + 1)));
     $("search-input").addEventListener("input", (e) => {
@@ -648,7 +925,14 @@
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
       if (e.key === "Escape") {
         if (!$("viewer").hidden) closeViewer();
-        else closePanels();
+        else if (panelsOpen()) closePanels();
+        else if (state.focus) setFocusMode(false);
+        else if (state.fullscreen) setFullscreen(false);
+        return;
+      }
+      if (e.key === "F11") {
+        e.preventDefault();
+        setFullscreen(!state.fullscreen);
         return;
       }
       if (e.ctrlKey && e.key.toLowerCase() === "f" && r.enableSearch) {
@@ -681,7 +965,22 @@
         setPref("size", Math.max(14, currentSize() - 1));
         return;
       }
-      if (typing || $("reader").hidden) return;
+      if (typing || $("reader").hidden || e.ctrlKey || e.metaKey) return;
+      if (e.key.toLowerCase() === "f" && !e.altKey && !e.shiftKey) {
+        setFocusMode(!state.focus);
+        return;
+      }
+      if (isPaged() && !e.altKey) {
+        const onControl = document.activeElement && document.activeElement.closest && document.activeElement.closest("button, a, summary, [role=button]");
+        const space = e.key === " " && !onControl;
+        if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown" || (space && !e.shiftKey)) turn(1);
+        else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp" || (space && e.shiftKey)) turn(-1);
+        else if (e.key === "Home") goto(0, true);
+        else if (e.key === "End") (countPages(), goto(pager.pages - 1, true));
+        else return;
+        e.preventDefault();
+        return;
+      }
       if (e.key === "ArrowRight" && !e.altKey && state.chapter < state.book.chapters.length - 1) {
         location.hash = "#read/" + (state.chapter + 1);
       } else if (e.key === "ArrowLeft" && !e.altKey && state.chapter > 0) {
@@ -777,6 +1076,7 @@
     renderAbout();
     $("app").removeAttribute("aria-busy");
     route();
+    window.__pager = pager;
   }
 
   start();

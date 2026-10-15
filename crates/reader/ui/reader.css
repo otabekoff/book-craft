@@ -2,6 +2,8 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
+/* Views scroll themselves; stray body children (e.g. Mermaid's tooltip) must not add a page scrollbar. */
+body { overflow: hidden; }
 body {
   background: var(--bc-paper);
   color: var(--bc-ink);
@@ -299,7 +301,104 @@ button, select, input { font: inherit; color: inherit; }
 @media print {
   .titlebar, .toc, .toolbar, .progress, .chapter-nav, .popover, .side-panel { display: none !important; }
   .scroller { overflow: visible; }
-  body, html, .app, .view, .reader, .reader-main { height: auto; display: block; }
+  body, html, .app, .view, .reader, .reader-main { height: auto; display: block; overflow: visible; }
+  .reader.paged .scroller { overflow: visible !important; display: block !important; }
+  .reader .page-number { display: none !important; }
+  .reader.paged .page-frame, .reader.paged .bc-chapter { display: block; overflow: visible !important; box-shadow: none !important; width: auto !important; height: auto !important; columns: auto !important; transform: none !important; padding: 0 !important; }
 }
 
 .app.has-titlebar .viewer { top: 36px; }
+/* ------------------------------------------------------------ layouts: page mode, paper, focus, full screen */
+
+.page-frame { display: contents; }
+.page-number { display: none; }
+.app.fullscreen .titlebar { display: none; }
+.app.fullscreen .viewer { top: 0; }
+
+/* Full width keeps a comfortable margin on very wide windows. */
+.reader.width-full:not(.paged) .scroller .bc-chapter { padding-left: clamp(32px, 5vw, 96px); padding-right: clamp(32px, 5vw, 96px); }
+
+/* Paper: the text sits on a sheet over a slightly darker desk. */
+.reader { --rd-desk: color-mix(in srgb, var(--bc-paper) 91%, var(--bc-ink)); --rd-sheet-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 10px 34px rgb(0 0 0 / 0.12); }
+html[data-theme="dark"] .reader { --rd-desk: color-mix(in srgb, var(--bc-paper) 72%, #000); --rd-sheet-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 36px rgb(0 0 0 / 0.45); }
+.reader.paper .scroller { background: var(--rd-desk); }
+.reader.paper:not(.paged) .scroller .bc-chapter {
+  max-width: calc(var(--bc-measure) + 112px);
+  margin: 32px auto 0;
+  padding: 64px 56px 48px;
+  background: var(--bc-paper);
+  border-radius: 4px;
+  box-shadow: var(--rd-sheet-shadow);
+}
+.reader.paper:not(.paged) .chapter-nav { padding-top: 24px; }
+.reader.paper.width-full:not(.paged) .scroller .bc-chapter { margin: 32px clamp(16px, 3vw, 48px) 0; }
+
+/* Page mode: a fixed frame, one CSS column per page, turned with a transform. */
+.reader.paged .scroller { overflow: hidden; display: grid; place-items: center; }
+.reader.paged .chapter-nav { display: none; }
+.reader.paged .page-frame { display: block; position: relative; overflow: clip; flex: none; }
+.reader.paged .scroller .bc-chapter {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  column-fill: auto;
+  will-change: transform;
+}
+.reader.paged .bc-chapter.turning { transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .reader.paged .bc-chapter.turning { transition: none; } }
+.reader.paged .bc-chapter > :first-child { margin-top: 0; }
+.reader.paged .bc-chapter :is(img, video, svg, canvas, iframe) { max-height: var(--page-h); }
+.reader.paged .bc-chapter img { object-fit: contain; }
+/* Boxes move whole to the next page when they fit on one; taller ones still split. */
+.reader.paged .bc-chapter > :is(div, aside, figure, blockquote, pre, details, table),
+.reader.paged .bc-chapter :is(img, .bc-code, tr, li, .katex-display, .mermaid) { break-inside: avoid; }
+.reader.paged .bc-chapter :is(h1, h2, h3, h4, h5, h6) { break-after: avoid; break-inside: avoid; }
+.reader.paged .page-number {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--bc-muted);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.reader.paged.spread-2 .page-frame::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 44px;
+  bottom: 52px;
+  border-left: 1px solid var(--bc-border);
+}
+.reader.paged.paper .page-frame { background: var(--bc-paper); border-radius: 4px; box-shadow: var(--rd-sheet-shadow); }
+.reader.paged.paper.spread-2 .page-frame::before {
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  margin-left: -28px;
+  border: 0;
+  background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.06) 50%, transparent);
+}
+html[data-theme="dark"] .reader.paged.paper.spread-2 .page-frame::before { background: linear-gradient(to right, transparent, rgb(0 0 0 / 0.3) 50%, transparent); }
+
+/* Focus: only the text. The toolbar fades in when the pointer reaches the top. */
+.reader.focus .toc, .reader.focus .progress { display: none; }
+.reader.focus .toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  background: color-mix(in srgb, var(--bc-paper) 92%, transparent);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.reader.focus .toolbar:hover,
+.reader.focus .toolbar:focus-within,
+.reader.focus.chrome-on .toolbar,
+.reader.focus .reader-main:has(.popover:not([hidden]), .side-panel:not([hidden])) .toolbar { opacity: 1; }
+.reader.focus.paper .toolbar { background: color-mix(in srgb, var(--rd-desk) 92%, transparent); }

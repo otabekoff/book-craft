@@ -28,6 +28,21 @@ const paragraphOptions: SelectOption<string>[] = [
   { value: "spaced", label: "Space between paragraphs", description: "Easy to scan; common on screens" },
   { value: "indent", label: "Indented", description: "First-line indent, like a printed novel" },
 ];
+const layoutOptions = [
+  { value: "scroll", label: "Scroll" },
+  { value: "pages", label: "Pages" },
+];
+const spreadOptions = [
+  { value: "auto", label: "Auto" },
+  { value: "one", label: "One" },
+  { value: "two", label: "Two" },
+];
+const widthOptions = [
+  { value: "narrow", label: "Narrow" },
+  { value: "normal", label: "Normal" },
+  { value: "wide", label: "Wide" },
+  { value: "full", label: "Full" },
+];
 const titleBarOptions = [
   { value: "custom", label: "Book’s own" },
   { value: "native", label: "Windows" },
@@ -137,6 +152,18 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
           </UiField>
           <UiField label="Title bar" hint="The book’s own bar follows its theme and shows the chapter.">
             <UiSegmented v-model="r.titleBar" :options="titleBarOptions" aria-label="Title bar" />
+          </UiField>
+          <UiField label="Reading layout" hint="Readers can switch any time. Pages turn with the arrow keys, Space or a click near the edge.">
+            <UiSegmented v-model="r.defaultLayout" :options="layoutOptions" aria-label="Reading layout" />
+          </UiField>
+          <UiField label="Pages per screen" hint="Auto shows two pages side by side when the window is wide enough.">
+            <UiSegmented v-model="r.pageSpread" :options="spreadOptions" aria-label="Pages per screen" />
+          </UiField>
+          <UiField label="Text width">
+            <UiSegmented v-model="r.defaultWidth" :options="widthOptions" aria-label="Text width" />
+          </UiField>
+          <UiField label="Paper look" hint="Text sits on a paper sheet over a darker desk.">
+            <UiSwitch v-model="r.paperLook" label="Show the page as paper" />
           </UiField>
           <UiField label="Window size">
             <div class="pair">
