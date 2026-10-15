@@ -63,6 +63,7 @@ export interface ReaderSettings {
   minWidth: number;
   minHeight: number;
   allowCopy: boolean;
+  allowSelect: boolean;
   allowPrint: boolean;
   openLinksExternally: boolean;
   titleBar: string;
@@ -72,6 +73,7 @@ export interface ReaderSettings {
   paperLook: boolean;
   pageTurn: string;
   pageNumbers: boolean;
+  pageArrows: boolean;
   defaultWidth: string;
 }
 
@@ -154,11 +156,19 @@ export interface AssetInfo {
   kind: string;
 }
 
+export interface ToolDownload {
+  id: string;
+  name: string;
+  url: string;
+  winget: string;
+}
+
 export interface ToolStatus {
   name: string;
   neededFor: string;
   path: string | null;
   help: string;
+  download: ToolDownload | null;
 }
 
 export interface ToolPaths {
@@ -255,6 +265,9 @@ export interface TestCertificate {
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   saveSettings: (settings: StudioSettings) => invoke<AppInfo>("save_settings", { settings }),
+  installTool: (id: string) => invoke<AppInfo>("tools_install", { id }),
+  readLegal: (path: string) => invoke<string>("legal_read", { path }),
+  writeLegal: (text: string) => invoke<string>("legal_write", { text }),
   create: (dir: string, title: string, author: string) => invoke<ProjectData>("project_create", { dir, title, author }),
   open: (dir: string) => invoke<ProjectData>("project_open", { dir }),
   close: () => invoke<void>("project_close"),

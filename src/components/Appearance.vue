@@ -67,10 +67,11 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
   { key: "rememberPosition", label: "Remember the reader’s place", hint: "Reopen at the last page read." },
   { key: "enableSearch", label: "Search", hint: "Full-text search with highlights (Ctrl+F)." },
   { key: "enableBookmarks", label: "Bookmarks", hint: "Readers can save places (Ctrl+D)." },
+  { key: "allowSelect", label: "Readers can select text", hint: "Needed for highlights. Off makes the text unselectable (code stays selectable)." },
   { key: "allowThemeChange", label: "Theme choice", hint: "Light, sepia, dark and “Match Windows”." },
   { key: "allowFontSizeChange", label: "Text size control", hint: "Ctrl + / Ctrl − and buttons." },
   { key: "allowFontChange", label: "Typeface choice", hint: "Readers can pick another font." },
-  { key: "allowCopy", label: "Allow copying text", hint: "Off discourages copy and paste (code stays copyable)." },
+  { key: "allowCopy", label: "Allow copying text", hint: "Off blocks copy and paste from the book; code blocks' copy buttons still work." },
   { key: "allowPrint", label: "Allow printing", hint: "Ctrl+P prints the current chapter." },
   { key: "openLinksExternally", label: "Open web links in the browser", hint: "Otherwise web links are ignored." },
 ];
@@ -173,6 +174,9 @@ const toggles: { key: keyof typeof r.value; label: string; hint: string }[] = [
           </UiField>
           <UiField label="Page numbers" hint="A number under each page in page mode.">
             <UiSwitch v-model="r.pageNumbers" label="Show page numbers" />
+          </UiField>
+          <UiField label="Page arrows" hint="Previous and next buttons beside the page in page mode.">
+            <UiSwitch v-model="r.pageArrows" label="Show page arrows" />
           </UiField>
           <UiField label="Paper look" hint="Text sits on a paper sheet over a darker desk.">
             <UiSwitch v-model="r.paperLook" label="Show the page as paper" />

@@ -17,7 +17,7 @@ const config = {
   },
   chapters: chapters.map((c) => ({ file: c.file, title: "", hidden: false, kind: "chapter" })),
   typography: { bodyFont: "sitka", headingFont: "same", customFont: "", baseSize: 19, lineHeight: 1.65, maxWidth: 700, justify: false, hyphenate: true, dropCaps: false, smartQuotes: true, sceneBreak: "✻ ✻ ✻", paragraphStyle: "spaced", headingNumbers: false, customCss: "", uiFont: "segoe", codeFont: "cascadia" },
-  reader: { defaultTheme: "light", allowThemeChange: true, allowFontSizeChange: true, allowFontChange: true, showToc: true, showProgress: true, rememberPosition: true, showHomeScreen: true, enableSearch: true, enableBookmarks: true, windowWidth: 1200, windowHeight: 820, minWidth: 480, minHeight: 400, allowCopy: true, allowPrint: true, openLinksExternally: true, titleBar: "custom", fontChoices: ["georgia", "segoe"], defaultLayout: "scroll", pageSpread: "auto", paperLook: false, pageTurn: "fade", pageNumbers: true, defaultWidth: "normal" },
+  reader: { defaultTheme: "light", allowThemeChange: true, allowFontSizeChange: true, allowFontChange: true, showToc: true, showProgress: true, rememberPosition: true, showHomeScreen: true, enableSearch: true, enableBookmarks: true, windowWidth: 1200, windowHeight: 820, minWidth: 480, minHeight: 400, allowCopy: true, allowSelect: true, allowPrint: true, openLinksExternally: true, titleBar: "custom", fontChoices: ["georgia", "segoe"], defaultLayout: "scroll", pageSpread: "auto", paperLook: false, pageTurn: "fade", pageNumbers: true, pageArrows: true, defaultWidth: "normal" },
   modules: {
     code: { enabled: true, highlight: true, lineNumbers: false, copyButton: true, wrapLines: false, lightTheme: "InspiredGitHub", darkTheme: "OneHalfDark", runnable: true },
     math: { enabled: true, numberEquations: true, chemistry: true },
@@ -29,7 +29,7 @@ const config = {
 };
 
 const project = () => ({ root: "D:\\Books\\The Salt Road", config, chapters, chapterClass: "bc-chapter", problems: [], format: "json" });
-const tools = ["NSIS", "WiX Toolset 3", "MakeAppx", "SignTool", "WebView2 bootstrapper"].map((name) => ({ name, neededFor: "", path: "C:\\tools\\" + name, help: "" }));
+const tools = ["NSIS", "WiX Toolset 3", "MakeAppx", "SignTool", "WebView2 bootstrapper"].map((name) => ({ name, neededFor: "", path: "C:\\tools\\" + name, help: "", download: null }));
 const info = { version: "0.1.0-mock", readerTemplate: "reader.exe", vendor: "vendor", tools, codeThemes: ["InspiredGitHub", "OneHalfDark"], fonts: [{ key: "sitka", name: "Sitka Text", category: "serif", source: "windows", stack: "Sitka Text, Georgia, serif", note: "Built into Windows", kb: 0, cyrillic: true }, { key: "lib:literata", name: "Literata", category: "serif", source: "library", stack: "Literata Variable, Georgia, serif", note: "Designed for long reading on screens", kb: 263, cyrillic: true }], settings: { recent: ["D:\\Books\\The Salt Road"], tools: { makensis: "", wix: "", makeappx: "", signtool: "", webview2Bootstrapper: "" }, theme: "" } };
 
 export function installMock() {

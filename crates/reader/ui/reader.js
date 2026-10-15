@@ -90,6 +90,8 @@
     $("row-spread").hidden = !isPaged();
     $("row-turn").hidden = !isPaged();
     $("row-numbers").hidden = !isPaged();
+    $("row-arrows").hidden = !isPaged();
+    reader.classList.toggle("arrows-on", currentArrows() === "on");
 
     document.querySelectorAll("[data-theme-choice]").forEach((b) =>
       b.setAttribute("aria-pressed", String((prefs.theme || state.book.reader.defaultTheme) === b.dataset.themeChoice))
@@ -101,6 +103,7 @@
     document.querySelectorAll("[data-paper]").forEach((b) => b.setAttribute("aria-pressed", String(currentPaper() === b.dataset.paper)));
     document.querySelectorAll("[data-turn]").forEach((b) => b.setAttribute("aria-pressed", String(currentTurn() === b.dataset.turn)));
     document.querySelectorAll("[data-numbers]").forEach((b) => b.setAttribute("aria-pressed", String(currentNumbers() === b.dataset.numbers)));
+    document.querySelectorAll("[data-arrows]").forEach((b) => b.setAttribute("aria-pressed", String(currentArrows() === b.dataset.arrows)));
     $("size-value").textContent = currentSize() + " px";
     renderFontList();
     renderSettings();
@@ -143,6 +146,9 @@
   }
   function currentTurn() {
     return prefs.turn || state.book.reader.pageTurn || "fade";
+  }
+  function currentArrows() {
+    return prefs.arrows || (state.book.reader.pageArrows === false ? "off" : "on");
   }
   function currentNumbers() {
     return prefs.numbers || (state.book.reader.pageNumbers === false ? "off" : "on");
@@ -217,10 +223,18 @@
     target.append(top, bottom);
   }
 
+  function icon(name) {
+    const span = el("span", { "data-icon": name, "aria-hidden": "true" });
+    span.innerHTML = (window.ReaderIcons || {})[name] || "";
+    return span;
+  }
   function renderHome() {
     const b = state.book;
     const meta = b.meta;
     renderCover($("cover"));
+    const backdrop = $("home-backdrop");
+    backdrop.classList.toggle("has-image", !!meta.cover);
+    backdrop.style.backgroundImage = meta.cover ? 'url("/' + meta.cover.replace(/^\/+/, "") + '")' : "";
     $("home-eyebrow").textContent = [meta.publisher, meta.copyright && (meta.copyright.match(/\d{4}/) || [])[0]].filter(Boolean).join(" · ");
     $("home-title").textContent = meta.title;
     $("home-subtitle").textContent = meta.subtitle || "";
@@ -230,9 +244,25 @@
     $("home-description").hidden = !meta.description;
     $("home-copyright").textContent = [meta.copyright, meta.publisher && "Published by " + meta.publisher].filter(Boolean).join(" · ");
 
+    const chapterCount = b.chapters.filter((c) => !c.kind || c.kind === "chapter").length || b.chapters.length;
+    const facts = $("home-facts");
+    facts.innerHTML = "";
+    [
+      ["list", chapterCount + (chapterCount === 1 ? " chapter" : " chapters")],
+      ["clock", b.words ? minutes(b.words).replace(/^About /, "") + " read" : ""],
+      ["languages", meta.language ? languageName(meta.language) : ""],
+    ]
+      .filter(([, text]) => text)
+      .forEach(([name, text]) => {
+        const li = el("li");
+        li.append(icon(name), document.createTextNode(text));
+        facts.appendChild(li);
+      });
+
     const pos = b.reader.rememberPosition ? load("position", null) : null;
+    const started = pos && pos.chapter < b.chapters.length && (pos.chapter > 0 || pos.ratio > 0.02);
     const cont = $("home-continue");
-    if (pos && pos.chapter < b.chapters.length && (pos.chapter > 0 || pos.ratio > 0.02)) {
+    if (started) {
       cont.href = "#read/" + pos.chapter;
       cont.querySelector(".btn-label").textContent = "Continue reading";
       $("home-continue-sub").textContent = b.chapters[pos.chapter].title;
@@ -240,22 +270,38 @@
       const pct = overallPercent(pos.chapter, pos.ratio || 0);
       $("home-progress-wrap").hidden = !b.reader.showProgress;
       $("home-progress").style.width = pct + "%";
-      $("home-progress-text").textContent = pct + "% read · " + b.chapters.length + " chapters";
+      $("home-progress-text").textContent = pct + "% read";
     } else {
       cont.href = "#read/0";
       cont.querySelector(".btn-label").textContent = "Start reading";
-      $("home-continue-sub").textContent = minutes(b.words) ;
+      $("home-continue-sub").textContent = b.chapters[0] ? b.chapters[0].title : "";
       $("home-start").hidden = true;
       $("home-progress-wrap").hidden = true;
     }
 
+    $("home-contents-meta").textContent = [chapterCount + (chapterCount === 1 ? " chapter" : " chapters"), b.words ? minutes(b.words) : ""].filter(Boolean).join(" · ");
     const list = $("home-toc");
     list.innerHTML = "";
     b.chapters.forEach((c, i) => {
-      const li = el("li");
-      const a = el("a", { href: "#read/" + i });
-      a.appendChild(el("span", { class: "num" }, chapterNumberLabel(i)));
-      a.appendChild(el("span", null, c.title));
+      const li = el("li", { class: c.kind && c.kind !== "chapter" ? "kind-" + c.kind : "" });
+      const status = started ? (i < pos.chapter ? "done" : i === pos.chapter ? "current" : "") : "";
+      const a = el("a", { href: "#read/" + i, class: "toc-card" + (status ? " " + status : "") });
+      const num = chapterNumberLabel(i);
+      a.appendChild(el("span", { class: "num" }, num ? num.padStart(2, "0") : "•"));
+      const body = el("span", { class: "body" });
+      body.appendChild(el("span", { class: "t" }, c.title));
+      const metaLine = el("span", { class: "m" });
+      if (c.words) metaLine.appendChild(document.createTextNode(Math.max(1, Math.round(c.words / 230)) + " min"));
+      if (status === "done") {
+        const st = el("span", { class: "state" });
+        st.append(icon("check"), document.createTextNode("Read"));
+        metaLine.appendChild(st);
+      } else if (status === "current") {
+        metaLine.appendChild(el("span", { class: "state" }, "Reading · " + Math.round((pos.ratio || 0) * 100) + "%"));
+      }
+      body.appendChild(metaLine);
+      a.appendChild(body);
+      a.appendChild(icon("chevron-right"));
       li.appendChild(a);
       list.appendChild(li);
     });
@@ -315,9 +361,8 @@
       article.className = b.chapterClass || "bc-chapter";
       article.innerHTML = await fetchChapter(i);
       article.setAttribute("lang", b.meta.language || "en");
-      if (window.BookBlocks) {
-        window.BookBlocks.hydrate(article, { vendor: "/_runtime/vendor/", theme: effectiveTheme() });
-      }
+      const drawn = window.BookBlocks ? window.BookBlocks.hydrate(article, { vendor: "/_runtime/vendor/", theme: effectiveTheme() }) : null;
+      Promise.resolve(drawn).then(() => state.chapter === i && paintHighlights());
       const pos = load("position", null);
       const atEnd = state.openAtEnd;
       state.openAtEnd = false;
@@ -336,7 +381,16 @@
     }
     if (anchor) {
       const target = document.getElementById(anchor);
-      if (target) requestAnimationFrame(() => reveal(target));
+      if (target)
+        requestAnimationFrame(() => {
+          reveal(target);
+          flash(target);
+        });
+    }
+    if (state.pendingMark) {
+      const mark = state.pendingMark;
+      state.pendingMark = null;
+      requestAnimationFrame(() => revealMark(mark));
     }
     $("toolbar-title").textContent = b.chapters[i].title;
     document.title = b.chapters[i].title + " — " + b.meta.title;
@@ -453,6 +507,9 @@
     article.classList.toggle("turning", moved && currentTurn() === "slide");
     article.style.transform = "translateX(" + -pager.page * pager.step + "px)";
     renderPageNumbers();
+    $("arrow-prev").disabled = pager.page === 0 && state.chapter === 0;
+    $("arrow-next").disabled = pager.page >= pager.pages - 1 && state.chapter === state.book.chapters.length - 1;
+    hideSelMenu();
     updateProgress();
     clearTimeout(state.saveTimer);
     state.saveTimer = setTimeout(saveNow, 400);
@@ -1082,7 +1139,10 @@
     if (a.closest("#chapter") && href.startsWith("#") && !href.startsWith("#read/")) {
       e.preventDefault();
       const t = document.getElementById(decodeURIComponent(href.slice(1)));
-      if (t) reveal(t, "smooth");
+      if (t) {
+        reveal(t, "smooth");
+        flash(t);
+      }
       return;
     }
     if (a.dataset.viewer || /^\/assets\/.+\.(pdf|txt|png|jpe?g|gif|webp|svg|mp4|webm|mp3|wav|ogg)$/i.test(href)) {
@@ -1180,29 +1240,32 @@
   function bookmarks() {
     return load("bookmarks", []);
   }
+  function openMark(mark) {
+    closePanels();
+    if (state.chapter === mark.chapter) {
+      revealMark(mark);
+      return;
+    }
+    state.pendingMark = mark;
+    location.hash = "#read/" + mark.chapter;
+  }
   function renderBookmarks() {
+    const r = state.book.reader;
+    $("bookmarks-section").hidden = !r.enableBookmarks;
+    $("highlights-section").hidden = !canSelect();
+    $("marks-title").textContent = r.enableBookmarks && canSelect() ? "Bookmarks & highlights" : r.enableBookmarks ? "Bookmarks" : "Highlights";
     const list = $("bookmark-list");
     list.innerHTML = "";
     const all = bookmarks();
-    if (!all.length) {
-      list.appendChild(el("li", { class: "side-status" }, "No bookmarks yet."));
-      return;
-    }
+    if (!all.length) list.appendChild(el("li", { class: "side-status" }, "No bookmarks yet."));
     all.forEach((bm, n) => {
       const li = el("li");
       const a = el("a", { href: "#read/" + bm.chapter });
       a.innerHTML = '<span class="where">' + esc((state.book.chapters[bm.chapter] || {}).title || "") + "</span>" + esc(bm.text || "");
       a.addEventListener("click", (e) => {
         e.preventDefault();
-        closePanels();
         save("position", { chapter: bm.chapter, ratio: bm.ratio, at: Date.now() });
-        if (state.chapter === bm.chapter) {
-          setRatio(bm.ratio, true);
-        } else {
-          state.chapter = -1;
-          location.hash = "#read/" + bm.chapter;
-          openChapter(bm.chapter);
-        }
+        openMark(bm);
       });
       const rm = el("button", { type: "button", class: "remove", "aria-label": "Remove bookmark" }, "✕");
       rm.addEventListener("click", () => {
@@ -1213,6 +1276,30 @@
       });
       li.append(a, rm);
       list.appendChild(li);
+    });
+    const hl = $("highlight-list");
+    hl.innerHTML = "";
+    const marks = highlights()
+      .slice()
+      .sort((x, y) => x.chapter - y.chapter || x.start - y.start);
+    if (!marks.length) hl.appendChild(el("li", { class: "side-status" }, "Select text in the book to highlight it."));
+    marks.forEach((h) => {
+      const li = el("li");
+      const a = el("a", { href: "#read/" + h.chapter });
+      a.innerHTML =
+        '<span class="where"><span class="hl-mark hl-' + esc(h.color) + '"></span>' + esc((state.book.chapters[h.chapter] || {}).title || "") + "</span>" + esc(h.text.slice(0, 160));
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        openMark(h);
+      });
+      const rm = el("button", { type: "button", class: "remove", "aria-label": "Remove highlight" }, "✕");
+      rm.addEventListener("click", () => {
+        save("highlights", highlights().filter((x) => x.id !== h.id));
+        paintHighlights();
+        renderBookmarks();
+      });
+      li.append(a, rm);
+      hl.appendChild(li);
     });
   }
   function addBookmark() {
@@ -1235,21 +1322,268 @@
     renderBookmarks();
   }
 
+  /* ---------------------------------------------------------------- highlights & the selection menu
+     Highlights are kept as text offsets within the chapter (plus the text itself, to find them again
+     if the chapter changed) and drawn with the CSS Highlight API, so the page's HTML is never touched. */
+
+  const SKIP_TEXT = ".katex, .mermaid, svg, script, style, .bc-code-tools, button";
+  function canSelect() {
+    return state.book.reader.allowSelect !== false;
+  }
+  function highlights() {
+    return load("highlights", []);
+  }
+  function textIndex() {
+    const nodes = [];
+    let total = 0;
+    const walker = document.createTreeWalker($("chapter"), NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.parentElement && n.parentElement.closest(SKIP_TEXT) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    let n;
+    while ((n = walker.nextNode())) {
+      nodes.push({ node: n, start: total });
+      total += n.nodeValue.length;
+    }
+    return { nodes, total, text: nodes.map((e) => e.node.nodeValue).join("") };
+  }
+  function boundaryOffset(idx, container, offset) {
+    if (container.nodeType === 3) {
+      const hit = idx.nodes.find((e) => e.node === container);
+      if (hit) return hit.start + offset;
+    }
+    const point = document.createRange();
+    point.setStart(container, offset);
+    for (const e of idx.nodes) if (point.comparePoint(e.node, 0) >= 0) return e.start;
+    return idx.total;
+  }
+  function locate(idx, pos, end) {
+    for (const e of idx.nodes) {
+      const len = e.node.nodeValue.length;
+      if (pos < e.start + len || (end && pos === e.start + len)) return [e.node, Math.max(0, pos - e.start)];
+    }
+    const last = idx.nodes[idx.nodes.length - 1];
+    return last ? [last.node, last.node.nodeValue.length] : null;
+  }
+  /** Where a saved passage is now: its offsets if the text still matches, else the nearest copy of the text. */
+  function findPassage(idx, mark) {
+    const len = (mark.text || "").length;
+    if (!len) return null;
+    if (idx.text.slice(mark.start, mark.start + len) === mark.text) return mark.start;
+    let best = -1;
+    for (let at = idx.text.indexOf(mark.text); at >= 0; at = idx.text.indexOf(mark.text, at + 1)) {
+      if (best < 0 || Math.abs(at - mark.start) < Math.abs(best - mark.start)) best = at;
+    }
+    return best >= 0 ? best : null;
+  }
+  function passageRange(idx, start, len) {
+    const a = locate(idx, start, false);
+    const b = locate(idx, start + len, true);
+    if (!a || !b) return null;
+    const range = document.createRange();
+    range.setStart(a[0], a[1]);
+    range.setEnd(b[0], b[1]);
+    return range;
+  }
+  let painted = [];
+  function paintHighlights() {
+    if (!window.CSS || !CSS.highlights || state.chapter < 0) return;
+    const groups = { yellow: [], green: [], blue: [], pink: [] };
+    painted = [];
+    const idx = textIndex();
+    highlights()
+      .filter((h) => h.chapter === state.chapter)
+      .forEach((h) => {
+        const at = findPassage(idx, h);
+        if (at == null) return;
+        const range = passageRange(idx, at, h.text.length);
+        if (!range) return;
+        (groups[h.color] || groups.yellow).push(range);
+        painted.push({ h, range });
+      });
+    Object.entries(groups).forEach(([color, ranges]) => CSS.highlights.set("bc-hl-" + color, new Highlight(...ranges)));
+  }
+  /** Scroll or turn to a bookmarked passage or a highlight, and flash it. */
+  function revealMark(mark) {
+    if (mark.start == null || !mark.text) {
+      setRatio(mark.ratio || 0, true);
+      return;
+    }
+    const idx = textIndex();
+    const at = findPassage(idx, mark);
+    const range = at == null ? null : passageRange(idx, at, mark.text.length);
+    if (!range) {
+      setRatio(mark.ratio || 0, true);
+      return;
+    }
+    reveal(range, "third");
+    if (window.CSS && CSS.highlights) {
+      CSS.highlights.set("bc-flash", new Highlight(range));
+      setTimeout(() => CSS.highlights.delete("bc-flash"), 1600);
+    }
+  }
+  function flash(target) {
+    target.classList.remove("bc-flash");
+    void target.offsetWidth; // restart the animation
+    target.classList.add("bc-flash");
+    setTimeout(() => target.classList.remove("bc-flash"), 1700);
+  }
+  function toast(message) {
+    const t = el("div", { class: "toast", role: "status" }, message);
+    document.querySelector(".reader-main").appendChild(t);
+    setTimeout(() => t.remove(), 1900);
+  }
+
+  const menu = { range: null, mark: null };
+  function chapterSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    if (!$("chapter").contains(range.commonAncestorContainer)) return null;
+    return range.toString().trim() ? range : null;
+  }
+  function showSelMenu(rect, existing) {
+    const r = state.book.reader;
+    const m = $("sel-menu");
+    $("sel-colors").hidden = !canSelect();
+    $("sel-bookmark").hidden = !r.enableBookmarks;
+    $("sel-copy").hidden = !r.allowCopy;
+    $("sel-remove").hidden = !existing;
+    m.querySelectorAll("[data-hl]").forEach((b) => b.setAttribute("aria-pressed", String(!!existing && existing.color === b.dataset.hl)));
+    if ([...m.children].every((c) => c.hidden || c.classList.contains("sel-sep"))) return;
+    m.hidden = false;
+    const w = m.offsetWidth;
+    const h = m.offsetHeight;
+    let top = rect.top - h - 10;
+    if (top < 60) top = rect.bottom + 10;
+    const left = Math.max(8, Math.min(window.innerWidth - w - 8, rect.left + rect.width / 2 - w / 2));
+    m.style.left = left + "px";
+    m.style.top = Math.min(window.innerHeight - h - 8, top) + "px";
+  }
+  function hideSelMenu() {
+    const m = $("sel-menu");
+    if (m) m.hidden = true;
+    menu.range = null;
+    menu.mark = null;
+  }
+  function markFromRange(range, color) {
+    const idx = textIndex();
+    const start = boundaryOffset(idx, range.startContainer, range.startOffset);
+    const end = boundaryOffset(idx, range.endContainer, range.endOffset);
+    const text = idx.text.slice(start, end);
+    if (!text.trim()) return null;
+    return { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), chapter: state.chapter, start, text, color, at: Date.now() };
+  }
+  function hitHighlight(x, y) {
+    const caret = document.caretRangeFromPoint ? document.caretRangeFromPoint(x, y) : null;
+    if (!caret) return null;
+    const hit = painted.find((p) => p.range.isPointInRange(caret.startContainer, caret.startOffset));
+    return hit ? hit.h : null;
+  }
+  function wireSelection() {
+    const m = $("sel-menu");
+    const article = $("chapter");
+    // Keep the text selected while using the menu.
+    m.addEventListener("pointerdown", (e) => e.preventDefault());
+    const check = (e) => {
+      setTimeout(() => {
+        const range = chapterSelection();
+        if (range && canSelect()) {
+          menu.range = range.cloneRange();
+          menu.mark = null;
+          showSelMenu(range.getBoundingClientRect(), null);
+          return;
+        }
+        const hit = e && e.type === "pointerup" ? hitHighlight(e.clientX, e.clientY) : null;
+        if (hit) {
+          menu.range = null;
+          menu.mark = hit;
+          const p = painted.find((x) => x.h.id === hit.id);
+          showSelMenu(p.range.getBoundingClientRect(), hit);
+          return;
+        }
+        hideSelMenu();
+      }, 0);
+    };
+    article.addEventListener("pointerup", check);
+    article.addEventListener("keyup", (e) => e.shiftKey && check(e));
+    document.addEventListener("selectionchange", () => {
+      if (!m.hidden && menu.range && !chapterSelection()) hideSelMenu();
+    });
+    document.addEventListener("pointerdown", (e) => {
+      if (!m.hidden && !m.contains(e.target) && !article.contains(e.target)) hideSelMenu();
+    });
+    $("scroller").addEventListener("scroll", hideSelMenu, { passive: true });
+    m.querySelectorAll("[data-hl]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const color = b.dataset.hl;
+        let all = highlights();
+        if (menu.mark) all = all.map((h) => (h.id === menu.mark.id ? Object.assign({}, h, { color }) : h));
+        else if (menu.range) {
+          const mark = markFromRange(menu.range, color);
+          if (mark) all.push(mark);
+        }
+        save("highlights", all.slice(-2000));
+        paintHighlights();
+        window.getSelection().removeAllRanges();
+        hideSelMenu();
+        renderBookmarks();
+      })
+    );
+    $("sel-remove").addEventListener("click", () => {
+      if (menu.mark) save("highlights", highlights().filter((h) => h.id !== menu.mark.id));
+      paintHighlights();
+      hideSelMenu();
+      renderBookmarks();
+    });
+    $("sel-bookmark").addEventListener("click", () => {
+      const mark = menu.mark || (menu.range && markFromRange(menu.range, ""));
+      if (!mark) return;
+      const all = bookmarks();
+      all.unshift({ chapter: state.chapter, ratio: positionRatio(), start: mark.start, text: mark.text.trim().slice(0, 200), at: Date.now() });
+      save("bookmarks", all.slice(0, 200));
+      window.getSelection().removeAllRanges();
+      hideSelMenu();
+      renderBookmarks();
+      toast("Bookmarked");
+    });
+    $("sel-copy").addEventListener("click", async () => {
+      const text = menu.mark ? menu.mark.text : menu.range ? menu.range.toString() : "";
+      try {
+        await navigator.clipboard.writeText(text);
+        toast("Copied");
+      } catch (e) {
+        toast("Could not copy");
+      }
+      hideSelMenu();
+    });
+  }
+
   /* ---------------------------------------------------------------- about & settings */
 
+  function languageName(code) {
+    try {
+      return new Intl.DisplayNames([navigator.language || "en"], { type: "language" }).of(code) || code;
+    } catch (e) {
+      return code;
+    }
+  }
   function renderAbout() {
-    const m = state.book.meta;
+    const b = state.book;
+    const m = b.meta;
+    renderCover($("about-cover"));
+    $("about-title").textContent = m.title;
+    $("about-byline").textContent = [m.author && "by " + m.author, m.publisher].filter(Boolean).join(" · ");
+    $("about-description").textContent = m.description || "";
+    $("about-description").hidden = !m.description;
     const rows = [
-      ["Title", m.title],
       ["Subtitle", m.subtitle],
-      ["Author", m.author],
       ["Publisher", m.publisher],
-      ["Language", m.language],
-      ["ISBN", m.isbn],
+      ["Language", m.language && languageName(m.language)],
       ["Edition", m.version],
+      ["ISBN", m.isbn],
+      ["Chapters", String(b.chapters.length)],
+      ["Length", b.words ? b.words.toLocaleString() + " words · " + minutes(b.words).replace(/^About /, "about ") : ""],
       ["Package ID", m.packageId, "mono"],
-      ["Chapters", String(state.book.chapters.length)],
-      ["Words", state.book.words ? state.book.words.toLocaleString() : ""],
     ];
     const dl = $("about-details");
     dl.innerHTML = "";
@@ -1260,45 +1594,76 @@
     if (m.website) {
       dl.appendChild(el("dt", null, "Website"));
       const dd = el("dd");
-      dd.appendChild(el("a", { href: m.website }, m.website));
+      dd.appendChild(el("a", { href: m.website }, m.website.replace(/^https?:\/\//, "")));
       dl.appendChild(dd);
     }
-    $("about-copyright").textContent = m.copyright || "";
+    $("about-copyright").textContent = m.copyright || (m.author ? "© " + m.author : "");
     $("about-rights").textContent = m.rights || "All rights reserved.";
+    renderKeys();
+  }
+  function renderKeys() {
+    const r = state.book.reader;
+    const keys = [
+      [["←", "→"], "Previous or next page (chapter when scrolling)"],
+      [["Space"], "Next page in page mode"],
+      r.enableSearch && [["Ctrl", "F"], "Search the book"],
+      (r.enableBookmarks || canSelect()) && [["Ctrl", "D"], "Bookmarks and highlights"],
+      r.showToc && [["Ctrl", "B"], "Show or hide the contents"],
+      r.allowFontSizeChange && [["Ctrl", "+"], "Larger or smaller text (Ctrl −)"],
+      [["F"], "Focus mode"],
+      [["F11"], "Full screen"],
+      [["Esc"], "Close panels, leave focus or full screen"],
+    ].filter(Boolean);
+    const dl = $("about-keys");
+    dl.innerHTML = "";
+    keys.forEach(([combo, what]) => {
+      const dt = el("dt");
+      combo.forEach((k) => dt.appendChild(el("kbd", null, k)));
+      dl.append(dt, el("dd", null, what));
+    });
   }
 
+  function settingRow(label, control) {
+    const row = el("div", { class: "setting-row" });
+    row.append(el("span", { class: "setting-label" }, label), control);
+    return row;
+  }
   function renderSettings() {
     const r = state.book.reader;
     const body = $("about-settings-body");
     if (!body) return;
     body.innerHTML = "";
     if (r.allowThemeChange) {
-      const row = el("div", { class: "setting" });
-      row.appendChild(el("span", { class: "pop-label" }, "Theme"));
-      const seg = el("div", { class: "seg seg-text", role: "group", "aria-label": "Theme" });
+      const seg = el("div", { class: "seg swatches", role: "group", "aria-label": "Theme" });
       [["light", "Light"], ["sepia", "Sepia"], ["dark", "Dark"], ["system", "Match Windows"]].forEach(([v, label]) => {
-        const b = el("button", { type: "button", "aria-pressed": String((prefs.theme || r.defaultTheme) === v) }, label);
+        const b = el("button", { type: "button", class: "swatch swatch-" + v, "aria-label": label, title: label, "aria-pressed": String((prefs.theme || r.defaultTheme) === v) });
         b.addEventListener("click", () => setPref("theme", v));
         seg.appendChild(b);
       });
-      row.appendChild(seg);
-      body.appendChild(row);
+      body.appendChild(settingRow("Theme", seg));
     }
     if (r.allowFontSizeChange) {
-      const row = el("div", { class: "setting" });
-      row.appendChild(el("label", { for: "about-size" }, "Text size: " + currentSize() + " px"));
-      const input = el("input", { id: "about-size", type: "range", min: "14", max: "30", value: String(currentSize()) });
-      input.style.accentColor = "var(--bc-accent)";
-      input.addEventListener("change", () => setPref("size", parseInt(input.value, 10)));
-      row.appendChild(input);
-      body.appendChild(row);
+      const seg = el("div", { class: "seg" });
+      const down = el("button", { type: "button", class: "size-btn small", "aria-label": "Smaller text" }, "A");
+      const up = el("button", { type: "button", class: "size-btn large", "aria-label": "Larger text" }, "A");
+      down.addEventListener("click", () => setPref("size", Math.max(14, currentSize() - 1)));
+      up.addEventListener("click", () => setPref("size", Math.min(30, currentSize() + 1)));
+      seg.append(down, el("span", { class: "size-value" }, currentSize() + " px"), up);
+      body.appendChild(settingRow("Text size", seg));
     }
+    const layout = el("div", { class: "seg seg-text", role: "group", "aria-label": "Layout" });
+    [["scroll", "Scroll"], ["pages", "Pages"]].forEach(([v, label]) => {
+      const b = el("button", { type: "button", "aria-pressed": String(currentLayout() === v) }, label);
+      b.addEventListener("click", () => setPref("layout", v));
+      layout.appendChild(b);
+    });
+    body.appendChild(settingRow("Layout", layout));
     if (r.rememberPosition) {
-      const label = el("label", { class: "check" });
-      const box = el("input", { type: "checkbox" });
+      const label = el("label", { class: "switch" });
+      const box = el("input", { type: "checkbox", role: "switch" });
       box.checked = load("remember", true);
       box.addEventListener("change", () => save("remember", box.checked));
-      label.append(box, document.createTextNode("Remember my place between sessions"));
+      label.append(el("span", null, "Remember my place"), box);
       body.appendChild(label);
     }
     const reset = el("button", { type: "button", class: "btn btn-secondary" }, "Reset reading settings");
@@ -1306,6 +1671,7 @@
       prefs = {};
       save("prefs", prefs);
       applyDisplay();
+      relayout();
     });
     body.appendChild(reset);
   }
@@ -1377,6 +1743,10 @@
     document.querySelectorAll("[data-paper]").forEach((b) => b.addEventListener("click", () => setPref("paper", b.dataset.paper)));
     document.querySelectorAll("[data-turn]").forEach((b) => b.addEventListener("click", () => setPref("turn", b.dataset.turn)));
     document.querySelectorAll("[data-numbers]").forEach((b) => b.addEventListener("click", () => setPref("numbers", b.dataset.numbers)));
+    document.querySelectorAll("[data-arrows]").forEach((b) => b.addEventListener("click", () => setPref("arrows", b.dataset.arrows)));
+    $("arrow-prev").addEventListener("click", () => turn(-1));
+    $("arrow-next").addEventListener("click", () => turn(1));
+    wireSelection();
     wireFocusChrome();
     $("btn-focus").addEventListener("click", () => setFocusMode(!state.focus));
     $("btn-fullscreen").addEventListener("click", () => setFullscreen(!state.fullscreen));
@@ -1404,7 +1774,8 @@
     document.addEventListener("keydown", (e) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
       if (e.key === "Escape") {
-        if (!$("viewer").hidden) closeViewer();
+        if (!$("sel-menu").hidden) hideSelMenu();
+        else if (!$("viewer").hidden) closeViewer();
         else if (panelsOpen()) closePanels();
         else if (state.focus) setFocusMode(false);
         else if (state.fullscreen) setFullscreen(false);
@@ -1421,7 +1792,7 @@
         toggle("search-panel");
         return;
       }
-      if (e.ctrlKey && e.key.toLowerCase() === "d" && r.enableBookmarks && !$("reader").hidden) {
+      if (e.ctrlKey && e.key.toLowerCase() === "d" && (r.enableBookmarks || canSelect()) && !$("reader").hidden) {
         e.preventDefault();
         toggle("bookmark-panel");
         return;
@@ -1467,16 +1838,23 @@
         location.hash = "#read/" + (state.chapter - 1);
       }
     });
+    // Selecting and copying are separate choices. Code blocks' copy buttons always work.
+    if (!canSelect()) document.body.classList.add("no-select");
     if (!r.allowCopy) {
       document.body.classList.add("no-copy");
-      document.addEventListener("copy", (e) => {
-        if (e.target.closest && e.target.closest("#chapter") && !e.target.closest(".bc-code")) e.preventDefault();
-      });
+      const block = (e) => {
+        const sel = window.getSelection();
+        const node = sel && sel.anchorNode;
+        const at = node && (node.nodeType === 1 ? node : node.parentElement);
+        if (at && at.closest("#chapter") && !at.closest(".bc-code")) e.preventDefault();
+      };
+      document.addEventListener("copy", block);
+      document.addEventListener("cut", block);
     }
     if (!r.allowPrint) window.addEventListener("beforeprint", (e) => e.preventDefault());
 
     $("btn-search").hidden = !r.enableSearch;
-    $("btn-bookmark").hidden = !r.enableBookmarks;
+    $("btn-bookmark").hidden = !(r.enableBookmarks || canSelect());
     $("btn-home").hidden = !r.showHomeScreen;
     $("row-theme").hidden = !r.allowThemeChange;
     $("row-size").hidden = !r.allowFontSizeChange;

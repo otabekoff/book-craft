@@ -169,6 +169,8 @@ pub struct ReaderSettings {
     pub min_width: u32,
     pub min_height: u32,
     pub allow_copy: bool,
+    /// Readers can select text (needed for highlights). Copying is a separate choice.
+    pub allow_select: bool,
     pub allow_print: bool,
     pub open_links_externally: bool,
     /// `custom` (the book's own title bar, matching its theme) or `native`.
@@ -185,6 +187,8 @@ pub struct ReaderSettings {
     pub page_turn: String,
     /// Show a number under each page in page mode.
     pub page_numbers: bool,
+    /// Show previous/next arrow buttons beside the page in page mode.
+    pub page_arrows: bool,
     /// Text column width readers start with: `narrow`, `normal`, `wide` or `full`.
     pub default_width: String,
 }
@@ -207,6 +211,7 @@ impl Default for ReaderSettings {
             min_width: 480,
             min_height: 400,
             allow_copy: true,
+            allow_select: true,
             allow_print: true,
             open_links_externally: true,
             title_bar: "custom".into(),
@@ -216,6 +221,7 @@ impl Default for ReaderSettings {
             paper_look: false,
             page_turn: "fade".into(),
             page_numbers: true,
+            page_arrows: true,
             default_width: "normal".into(),
         }
     }

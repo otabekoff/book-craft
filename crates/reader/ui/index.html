@@ -28,6 +28,7 @@
 
   <!-- Home -->
   <section id="home" class="view home" hidden>
+    <div class="home-backdrop" id="home-backdrop" aria-hidden="true"></div>
     <main class="home-main">
       <div class="cover" id="cover" role="img"></div>
       <div class="home-info">
@@ -35,13 +36,17 @@
         <h1 class="home-title" id="home-title"></h1>
         <div class="home-subtitle" id="home-subtitle"></div>
         <div class="home-author" id="home-author"></div>
+        <ul class="home-facts" id="home-facts"></ul>
         <p class="home-description" id="home-description"></p>
         <div class="home-actions">
-          <a class="btn btn-primary" id="home-continue" href="#read/0">
-            <span class="btn-label">Start reading</span>
-            <span class="btn-sub" id="home-continue-sub"></span>
+          <a class="btn btn-primary btn-big" id="home-continue" href="#read/0">
+            <span data-icon="book-open"></span>
+            <span class="btn-text">
+              <span class="btn-label">Start reading</span>
+              <span class="btn-sub" id="home-continue-sub"></span>
+            </span>
           </a>
-          <a class="btn btn-secondary" id="home-start" href="#read/0" hidden>Start from the beginning</a>
+          <a class="btn btn-secondary btn-big" id="home-start" href="#read/0" hidden>Start from the beginning</a>
         </div>
         <div class="home-progress" id="home-progress-wrap" hidden>
           <div class="bar"><div id="home-progress"></div></div>
@@ -49,13 +54,16 @@
         </div>
       </div>
     </main>
-    <nav class="home-contents" aria-label="Contents">
-      <h2>Contents</h2>
-      <ol id="home-toc"></ol>
+    <nav class="home-contents" aria-labelledby="home-contents-h">
+      <div class="section-head">
+        <h2 id="home-contents-h">Contents</h2>
+        <span class="section-meta" id="home-contents-meta"></span>
+      </div>
+      <ol id="home-toc" class="home-toc"></ol>
     </nav>
     <footer class="home-footer">
       <span id="home-copyright"></span>
-      <a href="#about">About this book</a>
+      <a href="#about" class="footer-link"><span data-icon="info"></span>About this book</a>
     </footer>
   </section>
 
@@ -165,6 +173,13 @@
             <button type="button" data-turn="none">Instant</button>
           </div>
         </div>
+        <div class="pop-row" id="row-arrows">
+          <span class="pop-label">Page arrows</span>
+          <div class="seg seg-text" role="group" aria-label="Page arrows" id="arrows-buttons">
+            <button type="button" data-arrows="on">Show</button>
+            <button type="button" data-arrows="off">Hide</button>
+          </div>
+        </div>
         <div class="pop-row" id="row-numbers">
           <span class="pop-label">Page numbers</span>
           <div class="seg seg-text" role="group" aria-label="Page numbers" id="numbers-buttons">
@@ -194,13 +209,21 @@
 
       <div id="bookmark-panel" class="side-panel" hidden>
         <div class="side-head">
-          <h2>Bookmarks</h2>
+          <h2 id="marks-title">Bookmarks</h2>
           <button class="icon-btn" type="button" data-close="bookmark-panel" aria-label="Close bookmarks">
             <span data-icon="x"></span>
           </button>
         </div>
-        <button type="button" class="btn btn-secondary btn-block" id="add-bookmark">Bookmark this page</button>
-        <ol id="bookmark-list" class="side-list"></ol>
+        <div class="side-scroll">
+          <div id="bookmarks-section">
+            <button type="button" class="btn btn-secondary btn-block" id="add-bookmark">Bookmark this page</button>
+            <ol id="bookmark-list" class="side-list"></ol>
+          </div>
+          <div id="highlights-section">
+            <h3 class="side-sub">Highlights</h3>
+            <ol id="highlight-list" class="side-list"></ol>
+          </div>
+        </div>
       </div>
 
       <div class="scroller" id="scroller">
@@ -210,10 +233,25 @@
           <div class="grip grip-prev" title="Previous page" aria-hidden="true"></div>
           <div class="grip grip-next" title="Next page" aria-hidden="true"></div>
         </div>
+        <button type="button" class="page-arrow prev" id="arrow-prev" aria-label="Previous page" title="Previous page"><span data-icon="chevron-left"></span></button>
+        <button type="button" class="page-arrow next" id="arrow-next" aria-label="Next page" title="Next page"><span data-icon="chevron-right"></span></button>
         <nav class="chapter-nav" aria-label="Chapter navigation">
           <button type="button" class="btn btn-secondary" id="prev">← Previous</button>
           <button type="button" class="btn btn-primary" id="next">Next chapter →</button>
         </nav>
+      </div>
+
+      <div id="sel-menu" class="sel-menu" role="toolbar" aria-label="Selection" hidden>
+        <div class="sel-colors" id="sel-colors">
+          <button type="button" data-hl="yellow" class="hl-dot hl-yellow" aria-label="Highlight yellow" title="Highlight"></button>
+          <button type="button" data-hl="green" class="hl-dot hl-green" aria-label="Highlight green" title="Highlight"></button>
+          <button type="button" data-hl="blue" class="hl-dot hl-blue" aria-label="Highlight blue" title="Highlight"></button>
+          <button type="button" data-hl="pink" class="hl-dot hl-pink" aria-label="Highlight pink" title="Highlight"></button>
+        </div>
+        <span class="sel-sep" aria-hidden="true"></span>
+        <button type="button" class="sel-btn" id="sel-bookmark" title="Bookmark this passage"><span data-icon="bookmark-plus"></span><span>Bookmark</span></button>
+        <button type="button" class="sel-btn" id="sel-copy" title="Copy"><span data-icon="copy"></span><span>Copy</span></button>
+        <button type="button" class="sel-btn danger" id="sel-remove" title="Remove highlight" hidden><span data-icon="trash"></span><span>Remove</span></button>
       </div>
 
       <footer class="progress" id="progress-bar">
@@ -230,23 +268,35 @@
       <a href="#back" class="back-link" id="about-back">
         <span data-icon="chevron-left"></span>Back
       </a>
-      <h1>About this book</h1>
+      <header class="about-head">
+        <div class="cover about-cover" id="about-cover" role="img"></div>
+        <div class="about-intro">
+          <div class="eyebrow">About this book</div>
+          <h1 id="about-title"></h1>
+          <div class="about-byline" id="about-byline"></div>
+          <p class="about-description" id="about-description"></p>
+        </div>
+      </header>
       <div class="about-grid">
         <section class="card" aria-labelledby="details-h">
-          <h2 id="details-h">Book details</h2>
+          <h2 id="details-h"><span data-icon="info"></span>Book details</h2>
           <dl id="about-details" class="details"></dl>
         </section>
         <section class="card" aria-labelledby="reading-h" id="about-settings">
-          <h2 id="reading-h">Reading</h2>
-          <div id="about-settings-body"></div>
+          <h2 id="reading-h"><span data-icon="a-large-small"></span>Reading</h2>
+          <div id="about-settings-body" class="settings"></div>
+        </section>
+        <section class="card" aria-labelledby="keys-h">
+          <h2 id="keys-h"><span data-icon="keyboard"></span>Keyboard</h2>
+          <dl id="about-keys" class="keys"></dl>
+        </section>
+        <section class="card" aria-labelledby="rights-h">
+          <h2 id="rights-h"><span data-icon="scroll-text"></span>Rights</h2>
+          <p id="about-copyright" class="rights-line"></p>
+          <p id="about-rights" class="rights-text"></p>
         </section>
       </div>
-      <section class="rights" aria-labelledby="rights-h">
-        <h2 id="rights-h">Rights</h2>
-        <p id="about-copyright"></p>
-        <p id="about-rights"></p>
-        <p class="made-with">Made with Book Craft</p>
-      </section>
+      <p class="made-with">Made with Book Craft</p>
     </main>
   </section>
 
